@@ -1,0 +1,29 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# ABS Tidy Library – docker-compose.yml
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: abs-tidy-library
+
+services:
+  abs-tidy-library:
+    image: donaldwin/abs-tidy-library:latest   # Pull from DockerHub
+    # build: .                                 # Uncomment to build locally
+    container_name: abs-tidy-library
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"   # Change left side to remap host port, e.g. "3000:8080"
+
+    volumes:
+      # ── Mount your audiobook library ──────────────────────────────────────
+      # Replace the left-hand path with the absolute path to your library.
+      - /path/to/your/audiobooks:/library
+
+    environment:
+      # Default path shown in the UI (should match the volume mount above)
+      LIBRARY_PATH: /library
+      PORT: 8080
+
+    # Optional: run as your host user to avoid permission issues
+    # user: "1000:1000"

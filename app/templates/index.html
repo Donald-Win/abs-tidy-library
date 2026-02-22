@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ABS Tidy Library</title>
+<style>
+  /* ── Reset & Base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --surface2: #22263a;
+    --border:   #2e3350;
+    --accent:   #6c63ff;
+    --accent2:  #4ade80;
+    --warn:     #f59e0b;
+    --danger:   #ef4444;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --radius:   10px;
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Layout ───────────────────────────────────────────────── */
+  .app-wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 1.5rem 4rem;
+  }
+
+  /* ── Header ───────────────────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem 0 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2rem;
+  }
+  .logo { font-size: 2rem; }
+  header h1 { font-size: 1.5rem; font-weight: 700; }
+  header span { font-size: 0.85rem; color: var(--muted); display: block; margin-top: 2px; }
+
+  /* ── Cards ────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .card-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  /* ── Path input ───────────────────────────────────────────── */
+  .path-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .path-row input {
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.65rem 0.9rem;
+    color: var(--text);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .path-row input:focus { border-color: var(--accent); }
+  .path-hint { font-size: 0.78rem; color: var(--muted); margin-top: 0.5rem; }
+
+  /* ── Buttons ──────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.65rem 1.2rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+    white-space: nowrap;
+  }
+  .btn:hover  { opacity: .88; }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-primary  { background: var(--accent);  color: #fff; }
+  .btn-success  { background: var(--accent2); color: #0f1117; }
+  .btn-warn     { background: var(--warn);    color: #0f1117; }
+  .btn-danger   { background: var(--danger);  color: #fff; }
+  .btn-ghost    { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-sm { padding: 0.45rem 0.9rem; font-size: 0.82rem; }
+
+  /* ── Stats grid ───────────────────────────────────────────── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 1rem;
+  }
+  .stat-item {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .stat-value { font-size: 1.6rem; font-weight: 800; color: var(--accent); }
+  .stat-label { font-size: 0.72rem; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .05em; }
+
+  /* ── Changes list ─────────────────────────────────────────── */
+  .changes-list { max-height: 380px; overflow-y: auto; }
+  .change-item {
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 0;
+  }
+  .change-item:last-child { border-bottom: none; }
+  .change-title { font-weight: 600; font-size: 0.93rem; }
+  .change-author { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .change-path {
+    font-size: 0.76rem;
+    color: var(--muted);
+    margin-top: 6px;
+    font-family: monospace;
+  }
+  .change-path .arrow { color: var(--accent2); margin: 0 4px; }
+  .more-badge {
+    display: inline-block;
+    background: var(--surface2);
+    border-radius: 20px;
+    padding: 0.3rem 0.9rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.75rem;
+  }
+
+  /* ── Action buttons bar ───────────────────────────────────── */
+  .action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  /* ── Terminal / Log ───────────────────────────────────────── */
+  .terminal {
+    background: #0a0c12;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    max-height: 340px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #a3e635;
+  }
+  .terminal .err { color: var(--danger); }
+  .terminal .info { color: #93c5fd; }
+  .terminal .done { color: var(--accent2); }
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Section visibility ───────────────────────────────────── */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* ── Notification toast ───────────────────────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1.2rem;
+    font-size: 0.88rem;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all .3s;
+    z-index: 999;
+    max-width: 320px;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.ok { border-left: 3px solid var(--accent2); }
+  #toast.bad { border-left: 3px solid var(--danger); }
+
+  /* ── Log viewer toggle ────────────────────────────────────── */
+  .log-toggle { cursor: pointer; user-select: none; color: var(--accent); }
+  .log-panel { display: none; margin-top: 1rem; }
+  .log-panel.open { display: block; }
+
+  /* ── Scrollbar ────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="app-wrap">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">📚</div>
+    <div>
+      <h1>ABS Tidy Library</h1>
+      <span>Audiobookshelf Library Organiser</span>
+    </div>
+  </header>
+
+  <!-- ── Step 1: Library Path ─────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">📁 Library Path</div>
+    <div class="path-row">
+      <input type="text" id="libPath" placeholder="/library  (or wherever your audiobooks live)"
+             value="{{ default_path }}" />
+      <button class="btn btn-primary" id="btnScan" onclick="startScan()">
+        <span class="spinner" id="scanSpinner" style="display:none"></span>
+        Scan Library
+      </button>
+    </div>
+    <p class="path-hint">
+      Mount your audiobook directory to <code>/library</code> in Docker, or enter a custom path.
+    </p>
+  </div>
+
+  <!-- ── Step 2: Stats (shown after scan) ─────────────────────── -->
+  <div class="card section" id="statsSection">
+    <div class="card-title">📊 Library Statistics</div>
+    <div class="stats-grid" id="statsGrid"></div>
+  </div>
+
+  <!-- ── Step 3: Changes (shown after scan) ───────────────────── -->
+  <div class="card section" id="changesSection">
+    <div class="card-title">🔀 Proposed Changes</div>
+    <div class="changes-list" id="changesList"></div>
+    <div class="action-bar">
+      <button class="btn btn-warn" onclick="startDryRun()">
+        👁 Dry Run (Preview Only)
+      </button>
+      <button class="btn btn-success" onclick="startApply()">
+        ✅ Apply All Changes
+      </button>
+      <button class="btn btn-ghost" onclick="startCleanEmpty(false)">
+        🗑 Clean Empty Dirs Only
+      </button>
+    </div>
+  </div>
+
+  <!-- ── No changes notice ─────────────────────────────────────── -->
+  <div class="card section" id="tidySection">
+    <div style="text-align:center; padding: 1rem 0;">
+      <div style="font-size:2.5rem">✨</div>
+      <div style="font-weight:700; font-size:1.1rem; margin-top:0.5rem;">Library is already tidy!</div>
+      <div style="color:var(--muted); font-size:0.88rem; margin-top:0.4rem;">No reorganisation needed.</div>
+      <div class="action-bar" style="justify-content:center; margin-top:1rem;">
+        <button class="btn btn-ghost" onclick="startCleanEmpty(false)">🗑 Clean Empty Dirs</button>
+        <button class="btn btn-ghost btn-sm" onclick="startCleanEmpty(true)">👁 Dry Run Clean</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Live terminal output ──────────────────────────────────── -->
+  <div class="card section" id="termSection">
+    <div class="card-title" id="termTitle">⚙ Running…</div>
+    <div class="terminal" id="terminal"></div>
+  </div>
+
+  <!-- ── Log file viewer ───────────────────────────────────────── -->
+  <div class="card section" id="logSection">
+    <div class="card-title">
+      <span class="log-toggle" onclick="toggleLog()">📄 tidy_library_log.txt <span id="logArrow">▸</span></span>
+    </div>
+    <div class="log-panel" id="logPanel">
+      <div class="terminal" id="logContent">(click to load)</div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:0.6rem" onclick="refreshLog()">↻ Refresh</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let currentPath    = '';
+let currentJobId   = null;
+let pollInterval   = null;
+let logOffset      = 0;
+let cachedChanges  = [];
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function show(id)  { $(id).classList.add('active'); }
+function hide(id)  { $(id).classList.remove('active'); }
+
+function toast(msg, ok = true) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.className   = 'show ' + (ok ? 'ok' : 'bad');
+  setTimeout(() => { el.className = ''; }, 3500);
+}
+
+function setTermTitle(t) { $('termTitle').textContent = t; }
+
+function appendTerm(line) {
+  const el = $('terminal');
+  const div = document.createElement('div');
+  if (line.startsWith('ERROR'))       div.className = 'err';
+  else if (line.startsWith('[DONE]'))  div.className = 'done';
+  else                                 div.className = 'info';
+  div.textContent = line;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearTerm() {
+  $('terminal').innerHTML = '';
+  logOffset = 0;
+}
+
+function setScanBusy(busy) {
+  $('btnScan').disabled = busy;
+  $('scanSpinner').style.display = busy ? 'inline-block' : 'none';
+}
+
+// ── Polling ────────────────────────────────────────────────────────────────────
+function startPolling(jobId, onDone) {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async () => {
+    try {
+      const r    = await fetch(`/api/job/${jobId}?offset=${logOffset}`);
+      const data = await r.json();
+      (data.log || []).forEach(line => appendTerm(line));
+      logOffset += (data.log || []).length;
+
+      if (data.status === 'done' || data.status === 'error') {
+        clearInterval(pollInterval);
+        pollInterval = null;
+        onDone(data);
+      }
+    } catch(e) { /* network hiccup - keep polling */ }
+  }, 600);
+}
+
+// ── Scan ───────────────────────────────────────────────────────────────────────
+async function startScan() {
+  currentPath = $('libPath').value.trim();
+  if (!currentPath) { toast('Enter a library path first.', false); return; }
+
+  setScanBusy(true);
+  hide('statsSection');
+  hide('changesSection');
+  hide('tidySection');
+  hide('logSection');
+  show('termSection');
+  clearTerm();
+  setTermTitle('⚙ Scanning library…');
+
+  try {
+    const r    = await fetch('/api/scan', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ library_path: currentPath }),
+    });
+    const data = await r.json();
+    if (data.error) { appendTerm('ERROR: ' + data.error); setScanBusy(false); toast(data.error, false); return; }
+
+    startPolling(data.job_id, onScanDone);
+  } catch(e) {
+    appendTerm('ERROR: ' + e.message);
+    setScanBusy(false);
+    toast('Scan failed: ' + e.message, false);
+  }
+}
+
+function onScanDone(jobData) {
+  setScanBusy(false);
+  if (jobData.status === 'error') {
+    toast('Scan failed — see terminal.', false);
+    return;
+  }
+  const r = jobData.result;
+  renderStats(r.stats);
+  show('statsSection');
+
+  if (r.changes_count === 0) {
+    hide('changesSection');
+    show('tidySection');
+  } else {
+    cachedChanges = r.changes;
+    renderChanges(r.changes, r.changes_count);
+    show('changesSection');
+  }
+  show('logSection');
+  setTermTitle('✅ Scan complete');
+  toast(`Scan done — ${r.changes_count} books need tidying.`);
+}
+
+// ── Render stats ───────────────────────────────────────────────────────────────
+function renderStats(s) {
+  $('statsGrid').innerHTML = [
+    ['📖', s.books,           'Books'],
+    ['✍️',  s.authors,         'Authors'],
+    ['🎙️',  s.narrators,       'Narrators'],
+    ['📚', s.series,          'Series'],
+    ['🔖', s.standalone,      'Standalone'],
+    ['⏱️',  s.total_duration,  'Total Time'],
+    ['💾', s.total_size_gb + ' GB', 'Library Size'],
+  ].map(([icon, val, label]) => `
+    <div class="stat-item">
+      <div class="stat-value">${icon}&nbsp;${val}</div>
+      <div class="stat-label">${label}</div>
+    </div>
+  `).join('');
+}
+
+// ── Render proposed changes ────────────────────────────────────────────────────
+function renderChanges(changes, total) {
+  const preview = changes.slice(0, 25);
+  const html = preview.map(c => `
+    <div class="change-item">
+      <div class="change-title">📕 ${escHtml(c.title)}</div>
+      <div class="change-author">${escHtml(c.author)}</div>
+      <div class="change-path">
+        <span>${escHtml(c.old_dir)}</span>
+        <span class="arrow">→</span>
+        <span>${escHtml(c.target_dir)}</span>
+      </div>
+    </div>
+  `).join('');
+  const more  = total > 25 ? `<div class="more-badge">+ ${total - 25} more books…</div>` : '';
+  $('changesList').innerHTML = html + more;
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// ── Apply / Dry Run ────────────────────────────────────────────────────────────
+async function startApply()   { await runJob('/api/apply',       false, '✅ Applying changes…',     'Apply'); }
+async function startDryRun()  { await runJob('/api/apply',       true,  '👁 Dry run preview…',      'Dry Run'); }
+
+async function startCleanEmpty(dry) {
+  await runJob('/api/clean-empty', dry,
+    dry ? '👁 Dry run — empty dir scan…' : '🗑 Cleaning empty directories…',
+    dry ? 'Dry Run Clean' : 'Clean Empty Dirs');
+}
+
+async function runJob(endpoint, dry_run, title, label) {
+  if (!currentPath) { toast('Scan a library first.', false); return; }
+  show('termSection');
+  clearTerm();
+  setTermTitle('⚙ ' + title);
+
+  try {
+    const r    = await fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ library_path: currentPath, dry_run }),
+    });
+    const data = await r.json();
+    if (data.error) { appendTerm('ERROR: ' + data.error); toast(data.error, false); return; }
+
+    startPolling(data.job_id, d => {
+      setTermTitle(d.status === 'done' ? `✅ ${label} complete` : `❌ ${label} failed`);
+      if (d.status === 'done') toast(`${label} complete!`);
+      else toast(`${label} failed — see terminal.`, false);
+    });
+  } catch(e) {
+    appendTerm('ERROR: ' + e.message);
+    toast(e.message, false);
+  }
+}
+
+// ── Log viewer ─────────────────────────────────────────────────────────────────
+let logOpen = false;
+
+function toggleLog() {
+  logOpen = !logOpen;
+  $('logPanel').classList.toggle('open', logOpen);
+  $('logArrow').textContent = logOpen ? '▾' : '▸';
+  if (logOpen) refreshLog();
+}
+
+async function refreshLog() {
+  if (!currentPath) return;
+  const r    = await fetch(`/api/log?library_path=${encodeURIComponent(currentPath)}&lines=150`);
+  const data = await r.json();
+  $('logContent').textContent = data.content || data.error || '(empty)';
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+// Pre-populate default path env var if set
+(async () => {
+  const r = await fetch('/api/default-path').catch(() => null);
+  if (r && r.ok) {
+    const d = await r.json();
+    if (d.path && !$('libPath').value) $('libPath').value = d.path;
+  }
+})();
+</script>
+</body>
+</html>
