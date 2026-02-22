@@ -1,21 +1,13 @@
 """
 ABS Tidy Library – Core Module
-Supports two scan modes:
-  • FILE MODE   – reads metadata.json files directly from the filesystem
-  • ABS MODE    – uses the Audiobookshelf API for metadata, filesystem for moves
-
-Leading-zero fix:
-  After building all BookMoves, pad_series_numbers() is called to ensure every
-  series' sequence numbers use consistent zero-padding derived from the widest
-  sequence number in that series (minimum 2 digits).
-  e.g., a 12-book series: "01", "02", ... "12"; a 9-book series: "01" ... "09".
+All metadata comes from the Audiobookshelf API (ABSBookItem objects).
+Naming is driven by a NamingConfig with user-editable token templates.
 """
 
 from __future__ import annotations
 
 import os
 import re
-import json
 import shutil
 import datetime
 from pathlib import Path
@@ -25,7 +17,7 @@ from dataclasses import dataclass, field
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-AUDIO_EXTENSIONS = {'.mp3', '.m4b', '.m4a', '.flac', '.ogg', '.opus', '.aac', '.wma'}
+AUDIO_EXTENSIONS   = {'.mp3', '.m4b', '.m4a', '.flac', '.ogg', '.opus', '.aac', '.wma'}
 INVALID_FILENAME_CHARS = '<>:"/\\|?*'
 BYTES_PER_GB       = 1024 ** 3
 SECONDS_PER_DAY    = 86400
@@ -33,6 +25,92 @@ SECONDS_PER_HOUR   = 3600
 SECONDS_PER_MINUTE = 60
 
 _noop: Callable[[str], None] = lambda msg: None
+
+
+# ── Naming configuration ───────────────────────────────────────────────────────
+
+@dataclass
+class NamingConfig:
+    """
+    Token-based naming templates, similar to Radarr/Sonarr.
+
+    Available tokens:
+      {Author}        – Author name
+      {Title}         – Book title
+      {Series}        – Series name
+      {Series-Index}  – Zero-padded series sequence  e.g. 01, 02, 12
+      {Narrator}      – Narrator name
+      {Year}          – Publish year (if available)
+      {Part-Index}    – Zero-padded part number for multi-file books
+
+    folder_standalone : folder path for books not in a series
+    folder_series     : folder path for books in a series
+                        (relative to library root — slashes create subfolders)
+    file_single       : filename (no extension) when a book has ONE audio file
+    file_multi        : filename (no extension) for each part when multi-file
+    """
+    folder_standalone: str = "{Author}/{Title}"
+    folder_series:     str = "{Author}/{Series}/{Series-Index} {Title}"
+    file_single:       str = "{Author} - {Title}"
+    file_multi:        str = "{Author} - {Title} - Part {Part-Index}"
+
+    # Preset library
+    PRESETS: dict = field(default_factory=lambda: {
+        "default": {
+            "label": "Default",
+            "folder_standalone": "{Author}/{Title}",
+            "folder_series":     "{Author}/{Series}/{Series-Index} {Title}",
+            "file_single":       "{Author} - {Title}",
+            "file_multi":        "{Author} - {Title} - Part {Part-Index}",
+        },
+        "series-first": {
+            "label": "Series First",
+            "folder_standalone": "{Author}/{Title}",
+            "folder_series":     "{Series}/{Series-Index} {Title}",
+            "file_single":       "{Author} - {Title}",
+            "file_multi":        "{Author} - {Title} - Part {Part-Index}",
+        },
+        "plex": {
+            "label": "Plex-friendly",
+            "folder_standalone": "{Author}/{Title}",
+            "folder_series":     "{Author}/{Series}/{Series-Index} - {Title}",
+            "file_single":       "{Title}",
+            "file_multi":        "{Title} - Part {Part-Index}",
+        },
+        "minimal": {
+            "label": "Minimal",
+            "folder_standalone": "{Author}/{Title}",
+            "folder_series":     "{Author}/{Series}/{Series-Index} {Title}",
+            "file_single":       "{Title}",
+            "file_multi":        "{Title} - Part {Part-Index}",
+        },
+    }, init=False, repr=False, compare=False)
+
+    def to_dict(self) -> dict:
+        return {
+            "folder_standalone": self.folder_standalone,
+            "folder_series":     self.folder_series,
+            "file_single":       self.file_single,
+            "file_multi":        self.file_multi,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "NamingConfig":
+        return cls(
+            folder_standalone = d.get("folder_standalone", cls.__dataclass_fields__["folder_standalone"].default),
+            folder_series     = d.get("folder_series",     cls.__dataclass_fields__["folder_series"].default),
+            file_single       = d.get("file_single",       cls.__dataclass_fields__["file_single"].default),
+            file_multi        = d.get("file_multi",        cls.__dataclass_fields__["file_multi"].default),
+        )
+
+    @classmethod
+    def from_env(cls) -> "NamingConfig":
+        return cls(
+            folder_standalone = os.environ.get("NAMING_FOLDER_STANDALONE", cls.__dataclass_fields__["folder_standalone"].default),
+            folder_series     = os.environ.get("NAMING_FOLDER_SERIES",     cls.__dataclass_fields__["folder_series"].default),
+            file_single       = os.environ.get("NAMING_FILE_SINGLE",       cls.__dataclass_fields__["file_single"].default),
+            file_multi        = os.environ.get("NAMING_FILE_MULTI",        cls.__dataclass_fields__["file_multi"].default),
+        )
 
 
 # ── Data classes ───────────────────────────────────────────────────────────────
@@ -64,11 +142,11 @@ class BookMove:
     title: str
     author: str
     series_name: str
-    series_sequence: str        # stored after zero-padding is applied
+    series_sequence: str
     old_dir: Path
     target_dir: Path
     move_plan: List[Tuple[Path, Path]]
-    abs_item_id: str = ""       # set in ABS mode; used for post-move rescan
+    abs_item_id: str = ""
 
     def to_dict(self, root_path: Path) -> dict:
         def rel(p: Path) -> str:
@@ -76,7 +154,6 @@ class BookMove:
                 return str(p.relative_to(root_path))
             except ValueError:
                 return str(p)
-
         return {
             "title":      self.title,
             "author":     self.author,
@@ -91,24 +168,11 @@ class BookMove:
         }
 
 
-# ── String / path helpers ──────────────────────────────────────────────────────
+# ── String helpers ─────────────────────────────────────────────────────────────
 
 def natural_sort_key(s: Any) -> List:
     return [int(t) if t.isdigit() else t.lower()
             for t in re.split(r'(\d+)', str(s))]
-
-
-def clean_metadata(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, list):
-        return clean_metadata(value[0]) if value else ""
-    s = str(value)
-    if "," in s:
-        s = s.split(",")[0]
-    s = re.sub(r"^\[['\"]", "", s)
-    s = re.sub(r"['\"]\]$", "", s)
-    return s.strip()
 
 
 def clean_filename(name: str) -> str:
@@ -117,20 +181,6 @@ def clean_filename(name: str) -> str:
     for ch in INVALID_FILENAME_CHARS:
         name = name.replace(ch, '')
     return re.sub(r'\s+', ' ', name).strip()
-
-
-def get_metadata_value(data: Dict[str, Any], key_names: List[str]) -> str:
-    if isinstance(key_names, str):
-        key_names = [key_names]
-    for key in key_names:
-        if data.get(key) is not None:
-            return clean_metadata(data[key])
-    meta = data.get('metadata', {})
-    if isinstance(meta, dict):
-        for key in key_names:
-            if meta.get(key) is not None:
-                return clean_metadata(meta[key])
-    return ""
 
 
 def format_total_duration(seconds: float) -> str:
@@ -152,16 +202,41 @@ def log_event(log_file: Path, message: str) -> None:
         pass
 
 
-# ── Series number zero-padding ─────────────────────────────────────────────────
+# ── Token rendering ────────────────────────────────────────────────────────────
+
+def render_template(template: str, tokens: Dict[str, str]) -> str:
+    """Replace {Token} placeholders, clean each segment for filesystem safety."""
+    result = template
+    for key, value in tokens.items():
+        result = result.replace(f"{{{key}}}", clean_filename(str(value)) if value else "")
+    # Clean up any double-spaces or trailing spaces per path segment
+    parts = result.split("/")
+    parts = [re.sub(r'\s+', ' ', p).strip() for p in parts]
+    parts = [p for p in parts if p]  # drop empty segments
+    return "/".join(parts)
+
+
+def make_tokens(
+    author: str,
+    title: str,
+    series_name: str,
+    series_sequence: str,
+    narrator: str = "",
+    year: str = "",
+) -> Dict[str, str]:
+    return {
+        "Author":       author,
+        "Title":        title,
+        "Series":       series_name,
+        "Series-Index": series_sequence,
+        "Narrator":     narrator,
+        "Year":         year,
+    }
+
+
+# ── Series zero-padding ────────────────────────────────────────────────────────
 
 def pad_sequence(seq: str, width: int) -> str:
-    """
-    Zero-pad only the integer part of a sequence number to `width` digits.
-    "1"   → "01"  (width=2)
-    "1.5" → "01.5" (width=2)
-    "10"  → "10"  (width=2)
-    "001" → "01"  (width=2, re-normalises over-padded values too)
-    """
     if not seq:
         return seq
     m = re.match(r'^(\d+)(.*)', seq.strip())
@@ -175,23 +250,22 @@ def _seq_int_part(seq: str) -> int:
     return int(m.group(1)) if m else 0
 
 
-def pad_series_numbers(planned_moves: List[BookMove]) -> List[BookMove]:
+def pad_series_numbers(
+    planned_moves: List[BookMove],
+    naming: NamingConfig,
+    root_path: Path,
+) -> List[BookMove]:
     """
-    Post-processing pass — gives every series consistent zero-padded sequences.
-
-    Groups books by (author, series_name), finds the maximum integer sequence
-    number, determines required digit width (min 2), then rebuilds target_dir
-    and move_plan destinations for any book whose sequence changes.
+    Ensure consistent zero-padding for all books in the same series,
+    then rebuild target_dir and move_plan using the naming template.
     """
-    # Build groups: key → list of indices into planned_moves
     groups: Dict[Tuple[str, str], List[int]] = {}
     for i, bm in enumerate(planned_moves):
         if not bm.series_name:
             continue
-        key = (bm.author, bm.series_name)
-        groups.setdefault(key, []).append(i)
+        groups.setdefault((bm.author, bm.series_name), []).append(i)
 
-    for key, indices in groups.items():
+    for (author, series_name), indices in groups.items():
         seqs    = [planned_moves[i].series_sequence for i in indices]
         max_int = max((_seq_int_part(s) for s in seqs), default=0)
         width   = max(2, len(str(max_int)) if max_int > 0 else 2)
@@ -204,67 +278,46 @@ def pad_series_numbers(planned_moves: List[BookMove]) -> List[BookMove]:
             if new_seq == old_seq:
                 continue
 
-            c_title      = clean_filename(bm.title)
-            folder_label = f"{new_seq} {c_title}".strip() if new_seq else c_title
-            # target_dir structure: root / author / series / folder_label
-            # bm.target_dir.parent.parent is root / author / series
-            new_target   = bm.target_dir.parent.parent / bm.series_name / folder_label
-
-            new_plan = [(old_f, new_target / dest.name)
-                        for old_f, dest in bm.move_plan]
+            # Rebuild target_dir with padded sequence via naming template
+            tokens = make_tokens(bm.author, bm.title, bm.series_name, new_seq)
+            folder_rel = render_template(naming.folder_series, tokens)
+            new_target = root_path / Path(folder_rel)
+            new_plan   = [(old_f, new_target / dest.name)
+                          for old_f, dest in bm.move_plan]
 
             planned_moves[i] = BookMove(
-                title=bm.title,
-                author=bm.author,
-                series_name=bm.series_name,
-                series_sequence=new_seq,
-                old_dir=bm.old_dir,
-                target_dir=new_target,
-                move_plan=new_plan,
-                abs_item_id=bm.abs_item_id,
+                title=bm.title, author=bm.author,
+                series_name=bm.series_name, series_sequence=new_seq,
+                old_dir=bm.old_dir, target_dir=new_target,
+                move_plan=new_plan, abs_item_id=bm.abs_item_id,
             )
 
     return planned_moves
 
 
-# ── Series / filename parsing ──────────────────────────────────────────────────
-
-def parse_series_info(series_field: str) -> Tuple[str, str]:
-    """
-    Extract (series_name, raw_sequence) from a legacy 'Name #N' string.
-    Zero-padding is applied later by pad_series_numbers().
-    """
-    if not series_field:
-        return "", ""
-    parts       = series_field.split("#", 1)
-    series_name = clean_filename(parts[0].strip())
-    sequence    = parts[1].strip() if len(parts) > 1 else ""
-    return series_name, sequence
-
+# ── Move plan builder ──────────────────────────────────────────────────────────
 
 def build_move_plan(
     old_book_dir: Path,
     target_dir: Path,
     audio_files: List[Path],
     all_items: List[Path],
-    c_author: str,
-    c_title: str,
+    tokens: Dict[str, str],
+    naming: NamingConfig,
 ) -> List[Tuple[Path, Path]]:
-    """Return list of (source_path, dest_path) for every file in the book dir."""
     move_plan: List[Tuple[Path, Path]] = []
-    audio_set  = set(audio_files)
-    num_audio  = len(audio_files)
-    # minimum 2-digit part numbers so Part 01, Part 02 ... sort correctly
-    pad_width  = max(2, len(str(num_audio)))
+    audio_set = set(audio_files)
+    num_audio = len(audio_files)
+    pad_width = max(2, len(str(num_audio)))
 
     for idx, old_f in enumerate(audio_files, 1):
         ext = old_f.suffix.lower()
         if num_audio == 1:
-            new_name = f"{c_author} - {c_title}{ext}"
+            stem = render_template(naming.file_single, tokens)
         else:
-            part_num = str(idx).zfill(pad_width)
-            new_name = f"{c_author} - {c_title} - Part {part_num}{ext}"
-        move_plan.append((old_f, target_dir / new_name))
+            part_tokens = {**tokens, "Part-Index": str(idx).zfill(pad_width)}
+            stem = render_template(naming.file_multi, part_tokens)
+        move_plan.append((old_f, target_dir / f"{stem}{ext}"))
 
     for item in all_items:
         if item not in audio_set and item.is_file():
@@ -273,134 +326,29 @@ def build_move_plan(
     return move_plan
 
 
-# ── File-mode scanning ─────────────────────────────────────────────────────────
-
-def process_metadata_file(
-    meta_path: Path,
-    root_path: Path,
-    stats: LibraryStats,
-) -> Optional[BookMove]:
-    old_book_dir = meta_path.parent
-    try:
-        with open(meta_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, IOError):
-        return None
-
-    stats.books += 1
-    author       = get_metadata_value(data, ['authorName', 'author', 'authors', 'bookAuthor']) or "Unknown Author"
-    book_title   = get_metadata_value(data, ['title', 'bookTitle']) or "Unknown Title"
-    narrator     = get_metadata_value(data, ['narratorName', 'narrator', 'narrators']) or ""
-    series_field = get_metadata_value(data, ['seriesName', 'series']) or ""
-    duration_raw = data.get('duration') or data.get('metadata', {}).get('duration') or 0
-
-    stats.authors.add(author)
-    if narrator:
-        stats.narrators.add(narrator)
-
-    series_title, sequence = parse_series_info(series_field)
-    if series_title:
-        stats.series.add(series_title)
-    else:
-        stats.standalone_count += 1
-
-    try:
-        stats.total_duration += float(duration_raw)
-    except (ValueError, TypeError):
-        pass
-
-    c_author = clean_filename(author)
-    c_title  = clean_filename(book_title)
-
-    if series_title:
-        folder_label = f"{sequence} {c_title}".strip() if sequence else c_title
-        target_dir   = root_path / c_author / series_title / folder_label
-    else:
-        target_dir = root_path / c_author / c_title
-
-    try:
-        all_items = list(old_book_dir.iterdir())
-    except PermissionError:
-        return None
-
-    audio_files = sorted(
-        [f for f in all_items if f.suffix.lower() in AUDIO_EXTENSIONS],
-        key=lambda x: natural_sort_key(x.name),
-    )
-
-    for item in all_items:
-        if item.is_file():
-            try:
-                stats.total_size += item.stat().st_size
-            except OSError:
-                pass
-
-    move_plan = build_move_plan(old_book_dir, target_dir, audio_files, all_items, c_author, c_title)
-
-    needs_changes = (
-        old_book_dir.resolve() != target_dir.resolve() or
-        any(old.name != new.name for old, new in move_plan)
-    )
-
-    if needs_changes:
-        return BookMove(
-            title=book_title,
-            author=author,
-            series_name=series_title,
-            series_sequence=sequence,
-            old_dir=old_book_dir,
-            target_dir=target_dir,
-            move_plan=move_plan,
-        )
-    return None
-
-
-def scan_library(
-    root_path: Path,
-    emit: Callable[[str], None] = _noop,
-) -> Tuple[LibraryStats, List[BookMove]]:
-    """File-mode: scan metadata.json files, plan all moves."""
-    meta_files  = list(root_path.rglob('metadata.json'))
-    total_found = len(meta_files)
-
-    if total_found == 0:
-        emit("ERROR: No metadata.json files found. Check the library path.")
-        return LibraryStats(), []
-
-    emit(f"Found {total_found} books in library.")
-    stats: LibraryStats     = LibraryStats()
-    planned_moves: List[BookMove] = []
-
-    for idx, meta_path in enumerate(meta_files, 1):
-        if idx % 10 == 0 or idx == total_found:
-            emit(f"Analysing: {idx}/{total_found} books…")
-        bm = process_metadata_file(meta_path, root_path, stats)
-        if bm:
-            planned_moves.append(bm)
-
-    planned_moves = pad_series_numbers(planned_moves)
-    emit(f"Scan complete. {len(planned_moves)} books need tidying.")
-    return stats, planned_moves
-
-
-# ── ABS-mode scanning ──────────────────────────────────────────────────────────
+# ── ABS-mode scan ──────────────────────────────────────────────────────────────
 
 def scan_library_abs(
-    abs_items,      # List[ABSBookItem] from abs_api.py
+    abs_items,
     root_path: Path,
+    naming: NamingConfig,
     emit: Callable[[str], None] = _noop,
 ) -> Tuple[LibraryStats, List[BookMove]]:
-    """ABS mode: use API-provided metadata + filesystem paths to plan moves."""
-    stats: LibraryStats     = LibraryStats()
+    """
+    Build move plans for all ABS items using API metadata and naming templates.
+    No metadata.json files are read — all data comes from the ABS API.
+    """
+    stats: LibraryStats       = LibraryStats()
     planned_moves: List[BookMove] = []
     total = len(abs_items)
 
-    emit(f"Planning changes for {total} books…")
+    emit(f"Planning changes for {total} books using ABS API metadata…")
 
     for idx, item in enumerate(abs_items, 1):
         if idx % 10 == 0 or idx == total:
             emit(f"Processing: {idx}/{total}…")
 
+        # ── Stats ──────────────────────────────────────────────────────────────
         stats.books += 1
         stats.authors.add(item.author)
         if item.narrator:
@@ -412,22 +360,28 @@ def scan_library_abs(
         stats.total_duration += item.duration
         stats.total_size     += item.size
 
-        c_author = clean_filename(item.author)
-        c_title  = clean_filename(item.title)
-        seq      = item.series_sequence     # raw; padded later
-
-        old_book_dir = Path(item.book_path)
+        # ── Build target directory via naming template ──────────────────────────
+        tokens = make_tokens(
+            author        = item.author,
+            title         = item.title,
+            series_name   = item.series_name,
+            series_sequence = item.series_sequence,
+            narrator      = item.narrator,
+            year          = item.year,
+        )
 
         if item.series_name:
-            folder_label = f"{seq} {c_title}".strip() if seq else c_title
-            target_dir   = root_path / c_author / item.series_name / folder_label
+            folder_rel = render_template(naming.folder_series, tokens)
         else:
-            target_dir = root_path / c_author / c_title
+            folder_rel = render_template(naming.folder_standalone, tokens)
 
+        old_book_dir = Path(item.book_path)
+        target_dir   = root_path / Path(folder_rel)
+
+        # ── Gather files ───────────────────────────────────────────────────────
         audio_paths = [Path(p) for p in item.audio_files]
         all_paths   = [Path(p) for p in item.all_files]
 
-        # Catch any extra files not listed in libraryFiles
         try:
             if old_book_dir.exists():
                 known = {p.resolve() for p in all_paths}
@@ -437,7 +391,9 @@ def scan_library_abs(
         except PermissionError:
             pass
 
-        move_plan = build_move_plan(old_book_dir, target_dir, audio_paths, all_paths, c_author, c_title)
+        move_plan = build_move_plan(
+            old_book_dir, target_dir, audio_paths, all_paths, tokens, naming
+        )
 
         needs_changes = (
             old_book_dir.resolve() != target_dir.resolve() or
@@ -446,17 +402,13 @@ def scan_library_abs(
 
         if needs_changes:
             planned_moves.append(BookMove(
-                title=item.title,
-                author=item.author,
-                series_name=item.series_name,
-                series_sequence=seq,
-                old_dir=old_book_dir,
-                target_dir=target_dir,
-                move_plan=move_plan,
-                abs_item_id=item.item_id,
+                title=item.title, author=item.author,
+                series_name=item.series_name, series_sequence=item.series_sequence,
+                old_dir=old_book_dir, target_dir=target_dir,
+                move_plan=move_plan, abs_item_id=item.item_id,
             ))
 
-    planned_moves = pad_series_numbers(planned_moves)
+    planned_moves = pad_series_numbers(planned_moves, naming, root_path)
     emit(f"Planning complete. {len(planned_moves)} books need tidying.")
     return stats, planned_moves
 
@@ -475,7 +427,7 @@ def execute_book_move(
         if not dry_run:
             book.target_dir.mkdir(parents=True, exist_ok=True)
         else:
-            emit(f"  {prefix}Would create dir: {book.target_dir}")
+            emit(f"  {prefix}Would create: {book.target_dir}")
 
         for old_f, new_f in book.move_plan:
             if not old_f.is_file():
@@ -485,7 +437,7 @@ def execute_book_move(
             if new_f.exists():
                 log_event(log_file, f"  {prefix}CONFLICT: {new_f.name}")
                 collisions.add(new_f.name)
-                emit(f"  CONFLICT: {new_f.name} already exists at target")
+                emit(f"  CONFLICT: {new_f.name} already at target")
                 continue
             if dry_run:
                 log_event(log_file, f"  {prefix}Would move: {old_f.name} → {new_f.name}")
@@ -498,15 +450,14 @@ def execute_book_move(
             try:
                 if not any(book.old_dir.iterdir()):
                     shutil.rmtree(book.old_dir)
-                    log_event(log_file, f"  CLEANUP: Removed empty dir {book.old_dir.name}")
+                    log_event(log_file, f"  CLEANUP: Removed {book.old_dir.name}")
             except (PermissionError, OSError):
                 pass
 
         return True
-
-    except (PermissionError, OSError, Exception) as e:
-        log_event(log_file, f"!!! ERROR on '{book.title}': {e}")
-        emit(f"ERROR on '{book.title}': {e}")
+    except Exception as e:
+        log_event(log_file, f"!!! ERROR '{book.title}': {e}")
+        emit(f"ERROR '{book.title}': {e}")
         return False
 
 
@@ -533,16 +484,9 @@ def apply_changes(
             exec_stats["errors"] += 1
 
     log_event(log_file, f"--- SESSION END: applied={exec_stats['applied']} errors={exec_stats['errors']} ---")
-
     if collisions:
-        emit(f"Collisions ({len(collisions)} files already at target): " + ", ".join(sorted(collisions)))
-
-    emit(
-        f"{prefix}Done. "
-        f"Applied: {exec_stats['applied']}, "
-        f"Errors: {exec_stats['errors']}, "
-        f"Collisions: {len(collisions)}"
-    )
+        emit(f"Collisions ({len(collisions)}): " + ", ".join(sorted(collisions)))
+    emit(f"{prefix}Done. Applied: {exec_stats['applied']}, Errors: {exec_stats['errors']}, Collisions: {len(collisions)}")
     return exec_stats
 
 
@@ -601,7 +545,6 @@ def clean_empty_dirs(
             except (PermissionError, OSError) as e:
                 log_event(log_file, f"  ERROR: {d} - {e}")
                 stats["failed"] += 1
-
         if dry_run:
             break
         empty_dirs = find_empty_directories(root_path)

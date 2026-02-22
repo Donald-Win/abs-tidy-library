@@ -9,98 +9,108 @@
 :root{
   --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;
   --accent:#6c63ff;--accent2:#4ade80;--warn:#f59e0b;--danger:#ef4444;
-  --info:#38bdf8;--text:#e2e8f0;--muted:#64748b;--radius:10px;
+  --text:#e2e8f0;--muted:#64748b;--radius:10px;
+  --token:#f59e0b;
 }
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-.wrap{max-width:900px;margin:0 auto;padding:0 1.5rem 4rem}
+.wrap{max-width:920px;margin:0 auto;padding:0 1.25rem 4rem}
 
-/* Header */
-header{display:flex;align-items:center;gap:1rem;padding:2rem 0 1.5rem;border-bottom:1px solid var(--border);margin-bottom:2rem}
-.logo{font-size:2rem}
-header h1{font-size:1.5rem;font-weight:700}
-header p{font-size:.85rem;color:var(--muted);margin-top:2px}
+header{display:flex;align-items:center;gap:1rem;padding:1.75rem 0 1.5rem;border-bottom:1px solid var(--border);margin-bottom:1.75rem}
+.logo{font-size:1.9rem}
+header h1{font-size:1.4rem;font-weight:700}
+header p{font-size:.82rem;color:var(--muted);margin-top:2px}
 
-/* Cards */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.5rem}
-.card-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:1rem}
+/* env badge shown when credentials come from env */
+.env-badge{font-size:.7rem;background:rgba(108,99,255,.2);color:#a5b4fc;border:1px solid rgba(108,99,255,.4);border-radius:4px;padding:.15rem .45rem;margin-left:.5rem;vertical-align:middle}
 
-/* Fields */
-.field{margin-bottom:1rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.4rem;margin-bottom:1.4rem}
+.card-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+
+.field{margin-bottom:.9rem}
 .field:last-child{margin-bottom:0}
-.field label{display:block;font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.05em}
-.field input,.field select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.65rem .9rem;color:var(--text);font-size:.93rem;outline:none;transition:border-color .2s}
+.field label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em}
+.field input,.field select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.6rem .85rem;color:var(--text);font-size:.9rem;outline:none;transition:border-color .2s;font-family:inherit}
 .field input:focus,.field select:focus{border-color:var(--accent)}
 .field select option{background:var(--surface)}
+.field input.mono{font-family:'Courier New',monospace;font-size:.85rem}
 .row{display:flex;gap:.75rem;flex-wrap:wrap}
 .row .field{flex:1;min-width:180px}
-.hint{font-size:.78rem;color:var(--muted);margin-top:.4rem;line-height:1.5}
+.hint{font-size:.76rem;color:var(--muted);margin-top:.35rem;line-height:1.55}
 
-/* Badges */
-.badge{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .75rem;border-radius:20px;font-size:.78rem;font-weight:600}
-.badge-ok{background:rgba(74,222,128,.15);color:var(--accent2);border:1px solid rgba(74,222,128,.3)}
-.badge-fail{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
+.badge{display:inline-flex;align-items:center;gap:.3rem;padding:.28rem .7rem;border-radius:20px;font-size:.76rem;font-weight:600}
+.badge-ok  {background:rgba(74,222,128,.15);color:#4ade80;border:1px solid rgba(74,222,128,.3)}
+.badge-fail{background:rgba(239,68,68,.15) ;color:#ef4444;border:1px solid rgba(239,68,68,.3)}
 
-/* Buttons */
-.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.65rem 1.2rem;border:none;border-radius:6px;font-size:.9rem;font-weight:600;cursor:pointer;transition:opacity .2s,transform .1s;white-space:nowrap}
-.btn:hover{opacity:.85}.btn:active{transform:scale(.97)}.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn{display:inline-flex;align-items:center;gap:.38rem;padding:.6rem 1.1rem;border:none;border-radius:6px;font-size:.88rem;font-weight:600;cursor:pointer;transition:opacity .18s,transform .1s;white-space:nowrap;font-family:inherit}
+.btn:hover{opacity:.84}.btn:active{transform:scale(.97)}.btn:disabled{opacity:.35;cursor:not-allowed}
 .btn-primary{background:var(--accent);color:#fff}
 .btn-success{background:var(--accent2);color:#0f1117}
-.btn-warn{background:var(--warn);color:#0f1117}
-.btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
-.btn-sm{padding:.4rem .85rem;font-size:.82rem}
-.btn-row{display:flex;flex-wrap:wrap;gap:.65rem;margin-top:.85rem}
+.btn-warn   {background:var(--warn)   ;color:#0f1117}
+.btn-ghost  {background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-sm     {padding:.36rem .8rem;font-size:.8rem}
+.btn-row    {display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.85rem}
 
-/* Stats */
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:1rem}
-.stat{background:var(--surface2);border-radius:8px;padding:1rem;text-align:center}
-.stat-val{font-size:1.45rem;font-weight:800;color:var(--accent)}
-.stat-lbl{font-size:.7rem;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(115px,1fr));gap:.9rem}
+.stat{background:var(--surface2);border-radius:8px;padding:.9rem;text-align:center}
+.stat-val{font-size:1.35rem;font-weight:800;color:var(--accent)}
+.stat-lbl{font-size:.68rem;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
 
-/* Changes */
-.changes-list{max-height:360px;overflow-y:auto}
-.change-item{border-bottom:1px solid var(--border);padding:.7rem 0}
+.changes-list{max-height:340px;overflow-y:auto}
+.change-item{border-bottom:1px solid var(--border);padding:.65rem 0}
 .change-item:last-child{border-bottom:none}
-.change-title{font-weight:600;font-size:.92rem}
-.change-series{font-size:.77rem;color:var(--accent);margin-top:2px}
-.change-author{font-size:.77rem;color:var(--muted)}
-.change-path{font-size:.73rem;color:var(--muted);margin-top:4px;font-family:monospace;word-break:break-all}
+.change-title{font-weight:600;font-size:.9rem}
+.change-series{font-size:.76rem;color:var(--accent);margin-top:2px}
+.change-author{font-size:.76rem;color:var(--muted)}
+.change-path{font-size:.72rem;color:var(--muted);margin-top:4px;font-family:monospace;word-break:break-all}
 .arrow{color:var(--accent2);margin:0 4px}
-.more-badge{display:inline-block;background:var(--surface2);border-radius:20px;padding:.3rem .9rem;font-size:.8rem;color:var(--muted);margin-top:.75rem}
+.more-badge{display:inline-block;background:var(--surface2);border-radius:20px;padding:.28rem .85rem;font-size:.77rem;color:var(--muted);margin-top:.65rem}
 
-/* Terminal */
-.terminal{background:#0a0c12;border:1px solid var(--border);border-radius:8px;padding:1rem;font-family:'Courier New',monospace;font-size:.8rem;line-height:1.6;max-height:320px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:#a3e635}
-.t-err{color:var(--danger)}.t-ok{color:var(--accent2)}.t-info{color:#93c5fd}
+.terminal{background:#0a0c12;border:1px solid var(--border);border-radius:8px;padding:.9rem;font-family:'Courier New',monospace;font-size:.78rem;line-height:1.65;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:#a3e635}
+.t-err{color:#ef4444}.t-ok{color:#4ade80}.t-info{color:#93c5fd}
 
-/* Spinner */
-.spinner{display:inline-block;width:13px;height:13px;border:2px solid transparent;border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid transparent;border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* Section show/hide */
 .section{display:none}.section.active{display:block}
-
-/* Log viewer */
+.log-body{display:none;margin-top:.9rem}.log-body.open{display:block}
 .log-toggle{cursor:pointer;user-select:none;color:var(--accent)}
-.log-body{display:none;margin-top:1rem}.log-body.open{display:block}
 
-/* Tidy notice */
-.tidy-center{text-align:center;padding:1.5rem 0}
-.tidy-center .emoji{font-size:2.5rem}
-.tidy-center h2{font-size:1.1rem;margin-top:.5rem}
-.tidy-center p{color:var(--muted);font-size:.87rem;margin-top:.35rem}
+.tidy-center{text-align:center;padding:1.25rem 0}
+.tidy-center .emoji{font-size:2.3rem}
+.tidy-center h2{font-size:1.05rem;margin-top:.5rem}
+.tidy-center p{color:var(--muted);font-size:.85rem;margin-top:.3rem}
 
-/* Toast */
-#toast{position:fixed;bottom:2rem;right:2rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.75rem 1.2rem;font-size:.87rem;opacity:0;transform:translateY(10px);transition:all .3s;z-index:999;max-width:340px}
+/* ── Naming editor ─────────────────────────────────────────────────────────── */
+.naming-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media(max-width:600px){.naming-grid{grid-template-columns:1fr}}
+
+.token-bar{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.75rem}
+.token-chip{
+  background:rgba(245,158,11,.12);color:var(--token);
+  border:1px solid rgba(245,158,11,.3);border-radius:4px;
+  padding:.2rem .55rem;font-size:.75rem;font-family:monospace;
+  cursor:pointer;user-select:none;transition:background .15s
+}
+.token-chip:hover{background:rgba(245,158,11,.25)}
+
+.preview-box{
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:.55rem .85rem;font-size:.78rem;font-family:monospace;
+  color:#a3e635;min-height:2.2rem;word-break:break-all;line-height:1.6
+}
+
+/* ── Toast ─────────────────────────────────────────────────────────────────── */
+#toast{position:fixed;bottom:1.75rem;right:1.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.7rem 1.1rem;font-size:.85rem;opacity:0;transform:translateY(10px);transition:all .28s;z-index:999;max-width:340px;pointer-events:none}
 #toast.show{opacity:1;transform:translateY(0)}
-#toast.ok{border-left:3px solid var(--accent2)}
-#toast.bad{border-left:3px solid var(--danger)}
+#toast.ok {border-left:3px solid #4ade80}
+#toast.bad{border-left:3px solid #ef4444}
 
-::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <!-- Header -->
   <header>
     <div class="logo">📚</div>
     <div>
@@ -109,53 +119,61 @@ header p{font-size:.85rem;color:var(--muted);margin-top:2px}
     </div>
   </header>
 
-  <!-- ── Step 1: Connection ─────────────────────────────────────── -->
+  <!-- ── Connection ──────────────────────────────────────────────────────────── -->
   <div class="card">
-    <div class="card-title">🔗 Audiobookshelf Connection</div>
+    <div class="card-title">
+      🔗 Audiobookshelf Connection
+      <span id="envCredBadge" class="env-badge" style="display:none">from environment</span>
+    </div>
 
     <div class="row">
       <div class="field">
         <label>Server URL</label>
-        <input type="text" id="absUrl" placeholder="http://192.168.1.100:13378"
+        <input type="text" id="absUrl"
+               value="{{ env_server_url }}"
+               placeholder="http://192.168.1.100:13378"
                autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
       </div>
       <div class="field">
         <label>API Key / Token</label>
-        <input type="password" id="absToken" placeholder="Paste your API Key here"
+        <input type="password" id="absToken"
+               value="{{ env_token }}"
+               placeholder="Paste your API Key here"
                autocomplete="off"/>
       </div>
     </div>
 
-    <div class="hint">
-      Create an API Key at <strong>ABS → Settings → API Keys → Add API Key</strong>. 
-      Copy it immediately — it's only shown once.
+    <div class="hint" style="margin-bottom:.75rem">
+      Create an API Key at <strong>ABS → Settings → API Keys → Add API Key</strong>.
+      Pre-fill permanently by setting <code>ABS_SERVER_URL</code> and <code>ABS_TOKEN</code>
+      in your <code>docker-compose.yml</code>.
     </div>
 
-    <div class="btn-row">
-      <button class="btn btn-primary" id="btnTest" onclick="testConnection()">
-        <span class="spinner" id="testSpinner" style="display:none"></span>
+    <div class="btn-row" style="margin-top:0">
+      <button class="btn btn-primary" id="btnConnect" onclick="connect()">
+        <span class="spinner" id="connectSpinner" style="display:none"></span>
         Connect
       </button>
-      <button class="btn btn-ghost btn-sm" id="btnDiagnose" onclick="diagnose()">
-        🔍 Diagnose
-      </button>
+      <button class="btn btn-ghost btn-sm" onclick="diagnose()">🔍 Diagnose</button>
       <span id="connStatus"></span>
     </div>
 
-    <!-- Diagnostics output -->
-    <div id="diagPanel" style="display:none;margin-top:1rem">
-      <div class="card-title" style="margin-bottom:.5rem">🔍 Raw Diagnostic Output</div>
+    <div id="diagPanel" style="display:none;margin-top:.9rem">
+      <div class="card-title" style="margin-bottom:.4rem">🔍 Raw Diagnostic Output</div>
       <div class="terminal" id="diagOutput"></div>
     </div>
   </div>
 
-  <!-- ── Step 2: Library selector (shown after connect) ────────── -->
+  <!-- ── Library selector ────────────────────────────────────────────────────── -->
   <div class="card section" id="libCard">
-    <div class="card-title">📚 Select Library</div>
+    <div class="card-title">
+      📚 Library
+      <span id="envLibBadge" class="env-badge" style="display:none">from environment</span>
+    </div>
 
     <div class="field">
-      <label>Audiobook Library</label>
-      <select id="libSelect" onchange="onLibrarySelect()">
+      <label>Select Library</label>
+      <select id="libSelect" onchange="onLibSelect()">
         <option value="">— choose a library —</option>
       </select>
     </div>
@@ -166,8 +184,85 @@ header p{font-size:.85rem;color:var(--muted);margin-top:2px}
              autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
       <div class="hint">
         ABS reports root: <code id="reportedPath">—</code><br>
-        This must be where the library files are mounted inside the ABS Tidy container.
-        Usually <code>/library</code> if you're using the same volume mount.
+        Must match where the library files are mounted in this container.
+        Set <code>LIBRARY_PATH</code> and <code>ABS_LIBRARY_ID</code> in compose to pre-fill.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Naming convention ───────────────────────────────────────────────────── -->
+  <div class="card section" id="namingCard">
+    <div class="card-title">
+      🗂 Naming Convention
+      <span id="envNamingBadge" class="env-badge" style="display:none">from environment</span>
+    </div>
+
+    <!-- Token reference -->
+    <div class="hint" style="margin-bottom:.5rem">Click a token to insert it at the cursor:</div>
+    <div class="token-bar" id="tokenBar">
+      <span class="token-chip" onclick="insertToken('{Author}')">     {Author}</span>
+      <span class="token-chip" onclick="insertToken('{Title}')">      {Title}</span>
+      <span class="token-chip" onclick="insertToken('{Series}')">     {Series}</span>
+      <span class="token-chip" onclick="insertToken('{Series-Index}')">{Series-Index}</span>
+      <span class="token-chip" onclick="insertToken('{Narrator}')">   {Narrator}</span>
+      <span class="token-chip" onclick="insertToken('{Year}')">       {Year}</span>
+      <span class="token-chip" onclick="insertToken('{Part-Index}')">{Part-Index}</span>
+    </div>
+
+    <!-- Preset picker -->
+    <div class="field">
+      <label>Preset</label>
+      <select id="namingPreset" onchange="applyPreset()">
+        <option value="">— choose a preset —</option>
+        {% for key, p in naming_presets.items() %}
+        <option value="{{ key }}">{{ p.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="naming-grid">
+      <div class="field">
+        <label>Standalone folder template</label>
+        <input type="text" id="nFolderStandalone" class="mono"
+               value="{{ naming.folder_standalone }}" oninput="updatePreviews()"/>
+      </div>
+      <div class="field">
+        <label>Series folder template</label>
+        <input type="text" id="nFolderSeries" class="mono"
+               value="{{ naming.folder_series }}" oninput="updatePreviews()"/>
+      </div>
+      <div class="field">
+        <label>Single-file audio filename</label>
+        <input type="text" id="nFileSingle" class="mono"
+               value="{{ naming.file_single }}" oninput="updatePreviews()"/>
+      </div>
+      <div class="field">
+        <label>Multi-part audio filename</label>
+        <input type="text" id="nFileMulti" class="mono"
+               value="{{ naming.file_multi }}" oninput="updatePreviews()"/>
+      </div>
+    </div>
+
+    <!-- Live preview -->
+    <div style="margin-top:1rem">
+      <div class="card-title" style="margin-bottom:.5rem">Preview</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+        <div>
+          <div class="hint" style="margin-bottom:.25rem">Standalone book</div>
+          <div class="preview-box" id="prevStandalone"></div>
+        </div>
+        <div>
+          <div class="hint" style="margin-bottom:.25rem">Series book</div>
+          <div class="preview-box" id="prevSeries"></div>
+        </div>
+        <div>
+          <div class="hint" style="margin-bottom:.25rem">Single audio file</div>
+          <div class="preview-box" id="prevFileSingle"></div>
+        </div>
+        <div>
+          <div class="hint" style="margin-bottom:.25rem">Multi-part (part 2 of 12)</div>
+          <div class="preview-box" id="prevFileMulti"></div>
+        </div>
       </div>
     </div>
 
@@ -179,43 +274,43 @@ header p{font-size:.85rem;color:var(--muted);margin-top:2px}
     </div>
   </div>
 
-  <!-- ── Stats (shown after scan) ──────────────────────────────── -->
+  <!-- ── Stats ───────────────────────────────────────────────────────────────── -->
   <div class="card section" id="statsSection">
     <div class="card-title">📊 Library Statistics</div>
     <div class="stats-grid" id="statsGrid"></div>
   </div>
 
-  <!-- ── Proposed changes (shown after scan) ───────────────────── -->
+  <!-- ── Proposed changes ────────────────────────────────────────────────────── -->
   <div class="card section" id="changesSection">
     <div class="card-title">🔀 Proposed Changes</div>
     <div class="changes-list" id="changesList"></div>
     <div class="btn-row">
-      <button class="btn btn-warn" onclick="startDryRun()">👁 Dry Run</button>
+      <button class="btn btn-warn"    onclick="startDryRun()">👁 Dry Run</button>
       <button class="btn btn-success" onclick="startApply()">✅ Apply All Changes</button>
-      <button class="btn btn-ghost" onclick="startCleanEmpty(false)">🗑 Clean Empty Dirs</button>
+      <button class="btn btn-ghost"   onclick="startCleanEmpty(false)">🗑 Clean Empty Dirs</button>
     </div>
   </div>
 
-  <!-- ── Already tidy notice ───────────────────────────────────── -->
+  <!-- ── Already tidy ────────────────────────────────────────────────────────── -->
   <div class="card section" id="tidySection">
     <div class="tidy-center">
       <div class="emoji">✨</div>
       <h2>Library is already tidy!</h2>
-      <p>No reorganisation needed.</p>
-      <div class="btn-row" style="justify-content:center;margin-top:1rem">
-        <button class="btn btn-ghost" onclick="startCleanEmpty(false)">🗑 Clean Empty Dirs</button>
+      <p>All books match the current naming convention.</p>
+      <div class="btn-row" style="justify-content:center;margin-top:.9rem">
+        <button class="btn btn-ghost"    onclick="startCleanEmpty(false)">🗑 Clean Empty Dirs</button>
         <button class="btn btn-ghost btn-sm" onclick="startCleanEmpty(true)">👁 Dry Run</button>
       </div>
     </div>
   </div>
 
-  <!-- ── Live terminal output ───────────────────────────────────── -->
+  <!-- ── Terminal ────────────────────────────────────────────────────────────── -->
   <div class="card section" id="termSection">
     <div class="card-title" id="termTitle">⚙ Running…</div>
     <div class="terminal" id="terminal"></div>
   </div>
 
-  <!-- ── Log file viewer ───────────────────────────────────────── -->
+  <!-- ── Log viewer ──────────────────────────────────────────────────────────── -->
   <div class="card section" id="logSection">
     <div class="card-title">
       <span class="log-toggle" onclick="toggleLog()">
@@ -224,11 +319,11 @@ header p{font-size:.85rem;color:var(--muted);margin-top:2px}
     </div>
     <div class="log-body" id="logBody">
       <div class="terminal" id="logContent">(loading…)</div>
-      <button class="btn btn-ghost btn-sm" style="margin-top:.6rem" onclick="refreshLog()">↻ Refresh</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:.55rem" onclick="refreshLog()">↻ Refresh</button>
     </div>
   </div>
 
-</div><!-- .wrap -->
+</div>
 <div id="toast"></div>
 
 <script>
@@ -239,9 +334,13 @@ let currentPath = '';
 let cacheKey    = '';
 let logOffset   = 0;
 let pollTimer   = null;
+let lastFocused = null;   // last naming input that had focus (for token insert)
 let absCtx      = { server_url:'', token:'', library_id:'' };
 
-// ── DOM ───────────────────────────────────────────────────────────────────────
+// Presets injected from Flask
+const PRESETS = {{ naming_presets | tojson }};
+
+// ── DOM helpers ───────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 const show = id => $(id).classList.add('active');
 const hide = id => $(id).classList.remove('active');
@@ -251,26 +350,29 @@ function toast(msg, ok=true){
   el.textContent=msg;
   el.className='show '+(ok?'ok':'bad');
   clearTimeout(el._t);
-  el._t=setTimeout(()=>el.className='',4000);
+  el._t=setTimeout(()=>el.className='',4200);
 }
 
 function appendTerm(line){
   const el=$('terminal');
   const d=document.createElement('div');
-  if(/^ERROR|^!!!/.test(line))   d.className='t-err';
+  if(/^ERROR|^!!!/.test(line))     d.className='t-err';
   else if(/^\[DONE\]|^✓/.test(line)) d.className='t-ok';
-  else                            d.className='t-info';
+  else                              d.className='t-info';
   d.textContent=line;
   el.appendChild(d);
   el.scrollTop=el.scrollHeight;
 }
-
 function clearTerm(){ $('terminal').innerHTML=''; logOffset=0; }
 function setTermTitle(t){ $('termTitle').textContent=t; }
 
-function busy(btnId, spinnerId, on){
+function busy(btnId, spinId, on){
   const b=$(btnId); if(b) b.disabled=on;
-  const s=$(spinnerId); if(s) s.style.display=on?'inline-block':'none';
+  const s=$(spinId); if(s) s.style.display=on?'inline-block':'none';
+}
+
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── Polling ───────────────────────────────────────────────────────────────────
@@ -290,38 +392,52 @@ function poll(jobId, onDone){
   },600);
 }
 
-// ── Step 1: Connect ───────────────────────────────────────────────────────────
-async function testConnection(){
+// ── Init: mark env-sourced fields ─────────────────────────────────────────────
+(function(){
+  const url   = $('absUrl').value.trim();
+  const tok   = $('absToken').value.trim();
+  if(url || tok){
+    $('envCredBadge').style.display='inline';
+  }
+
+  // Track focus on naming inputs for token insertion
+  ['nFolderStandalone','nFolderSeries','nFileSingle','nFileMulti'].forEach(id=>{
+    $(id).addEventListener('focus', ()=>lastFocused=$(id));
+  });
+
+  updatePreviews();
+})();
+
+// ── Connect ───────────────────────────────────────────────────────────────────
+async function connect(){
   const url=$('absUrl').value.trim();
   const tok=$('absToken').value.trim();
-  if(!url||!tok){ toast('Enter server URL and API Key first.',false); return; }
+  if(!url||!tok){ toast('Enter server URL and API Key.',false); return; }
 
-  busy('btnTest','testSpinner',true);
+  busy('btnConnect','connectSpinner',true);
   $('connStatus').innerHTML='';
-  hide('libCard');
+  hide('libCard'); hide('namingCard');
   $('diagPanel').style.display='none';
 
   try{
     const r=await fetch('/api/abs/test',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({server_url:url,token:tok}),
     });
     const d=await r.json();
-    busy('btnTest','testSpinner',false);
+    busy('btnConnect','connectSpinner',false);
 
     if(d.ok){
       $('connStatus').innerHTML=`<span class="badge badge-ok">✓ ${esc(d.message||'Connected')}</span>`;
-      absCtx.server_url=url;
-      absCtx.token=tok;
+      absCtx.server_url=url; absCtx.token=tok;
       toast('Connected!');
       await loadLibraries(url,tok);
     }else{
       $('connStatus').innerHTML=`<span class="badge badge-fail">✗ ${esc(d.error||'Failed')}</span>`;
-      toast(d.error||'Connection failed.',false);
+      toast(d.error||'Failed.',false);
     }
   }catch(e){
-    busy('btnTest','testSpinner',false);
+    busy('btnConnect','connectSpinner',false);
     $('connStatus').innerHTML=`<span class="badge badge-fail">✗ ${esc(e.message)}</span>`;
     toast(e.message,false);
   }
@@ -330,36 +446,30 @@ async function testConnection(){
 async function diagnose(){
   const url=$('absUrl').value.trim();
   const tok=$('absToken').value.trim();
-  if(!url||!tok){ toast('Enter server URL and API Key first.',false); return; }
-
+  if(!url||!tok){ toast('Enter URL and token first.',false); return; }
   $('diagPanel').style.display='block';
   $('diagOutput').textContent='Running diagnostics…';
-
   try{
     const r=await fetch('/api/abs/diagnose',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({server_url:url,token:tok}),
     });
     const d=await r.json();
     let out='';
     for(const [name,info] of Object.entries(d)){
       out+=`── ${name.toUpperCase()}  ${info.url||''}\n`;
-      if(info.error) out+=`   ERROR: ${info.error}\n`;
-      else           out+=`   Status: ${info.status}\n   Body:   ${info.body_snippet}\n`;
+      out+=info.error?`   ERROR: ${info.error}\n`:`   Status: ${info.status}\n   Body:   ${info.body_snippet}\n`;
       out+='\n';
     }
     $('diagOutput').textContent=out;
-  }catch(e){
-    $('diagOutput').textContent='Request failed: '+e.message;
-  }
+  }catch(e){ $('diagOutput').textContent='Request failed: '+e.message; }
 }
 
+// ── Libraries ─────────────────────────────────────────────────────────────────
 async function loadLibraries(url,tok){
   try{
     const r=await fetch('/api/abs/libraries',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({server_url:url,token:tok}),
     });
     const d=await r.json();
@@ -369,39 +479,102 @@ async function loadLibraries(url,tok){
     sel.innerHTML='<option value="">— choose a library —</option>';
     (d.libraries||[]).forEach(lib=>{
       const o=document.createElement('option');
-      o.value=lib.id;
-      o.dataset.path=lib.root_path||'';
-      o.textContent=lib.name;
+      o.value=lib.id; o.dataset.path=lib.root_path||''; o.textContent=lib.name;
+      // Pre-select if env var matches
+      if(lib.id==='{{ env_library_id }}') o.selected=true;
       sel.appendChild(o);
     });
 
-    // Auto-select if only one library
-    if(d.libraries && d.libraries.length===1){
-      sel.selectedIndex=1;
-      onLibrarySelect();
+    show('libCard');
+    show('namingCard');
+
+    // Auto-select if only one library, or if env var matched
+    const envId='{{ env_library_id }}';
+    const autoSel = d.libraries.length===1
+      ? d.libraries[0]
+      : (d.libraries||[]).find(l=>l.id===envId);
+
+    if(autoSel){
+      sel.value=autoSel.id;
+      onLibSelect();
+      if(envId) $('envLibBadge').style.display='inline';
     }
 
-    show('libCard');
+    // Set env path if available
+    if('{{ env_library_path }}' && !$('libPath').value){
+      $('libPath').value='{{ env_library_path }}';
+    }
   }catch(e){ toast(e.message,false); }
 }
 
-function onLibrarySelect(){
+function onLibSelect(){
   const sel=$('libSelect');
   const opt=sel.options[sel.selectedIndex];
-  if(!opt||!opt.value){
-    hide('pathField');
-    $('btnScan').disabled=true;
-    return;
-  }
+  if(!opt||!opt.value){ hide('pathField'); $('btnScan').disabled=true; return; }
   const reported=opt.dataset.path||'/library';
   $('reportedPath').textContent=reported;
-  $('libPath').value=reported;
+  if(!$('libPath').value) $('libPath').value=reported;
   absCtx.library_id=opt.value;
   show('pathField');
   $('btnScan').disabled=false;
 }
 
-// ── Step 2: Scan ──────────────────────────────────────────────────────────────
+// ── Naming convention ──────────────────────────────────────────────────────────
+function insertToken(token){
+  const el=lastFocused||$('nFolderStandalone');
+  el.focus();
+  const s=el.selectionStart, e=el.selectionEnd;
+  el.value=el.value.slice(0,s)+token+el.value.slice(e);
+  el.selectionStart=el.selectionEnd=s+token.length;
+  updatePreviews();
+}
+
+function applyPreset(){
+  const key=$('namingPreset').value;
+  if(!key||!PRESETS[key]) return;
+  const p=PRESETS[key];
+  $('nFolderStandalone').value=p.folder_standalone;
+  $('nFolderSeries').value    =p.folder_series;
+  $('nFileSingle').value      =p.file_single;
+  $('nFileMulti').value       =p.file_multi;
+  updatePreviews();
+  $('namingPreset').value='';
+}
+
+function renderTemplate(tpl, tokens){
+  let s=tpl;
+  for(const [k,v] of Object.entries(tokens)) s=s.replaceAll(`{${k}}`,v);
+  // clean up empty segments
+  return s.split('/').map(p=>p.trim()).filter(Boolean).join('/');
+}
+
+function updatePreviews(){
+  const sampleStandalone={
+    Author:'Brandon Sanderson', Title:'The Final Empire',
+    Series:'', 'Series-Index':'', Narrator:'Michael Kramer', Year:'2006',
+  };
+  const sampleSeries={
+    Author:'Brandon Sanderson', Title:'The Final Empire',
+    Series:'Mistborn', 'Series-Index':'01', Narrator:'Michael Kramer', Year:'2006',
+  };
+
+  $('prevStandalone').textContent = renderTemplate($('nFolderStandalone').value, sampleStandalone)+'/';
+  $('prevSeries').textContent     = renderTemplate($('nFolderSeries').value,     sampleSeries)+'/';
+  $('prevFileSingle').textContent = renderTemplate($('nFileSingle').value,        sampleSeries)+'.m4b';
+  $('prevFileMulti').textContent  = renderTemplate($('nFileMulti').value,
+    {...sampleSeries,'Part-Index':'02'})+'.m4b';
+}
+
+function getNaming(){
+  return {
+    folder_standalone: $('nFolderStandalone').value.trim(),
+    folder_series:     $('nFolderSeries').value.trim(),
+    file_single:       $('nFileSingle').value.trim(),
+    file_multi:        $('nFileMulti').value.trim(),
+  };
+}
+
+// ── Scan ───────────────────────────────────────────────────────────────────────
 async function startScan(){
   const libPath=$('libPath').value.trim();
   if(!libPath){ toast('Enter the filesystem path.',false); return; }
@@ -413,17 +586,17 @@ async function startScan(){
   busy('btnScan','scanSpinner',true);
   ['statsSection','changesSection','tidySection','logSection'].forEach(hide);
   show('termSection'); clearTerm();
-  setTermTitle('⚙ Fetching metadata from ABS…');
+  setTermTitle('⚙ Fetching metadata from ABS API…');
 
   try{
     const r=await fetch('/api/abs/scan',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         server_url:   absCtx.server_url,
         token:        absCtx.token,
         library_id:   absCtx.library_id,
         library_path: absCtx.library_path,
+        naming:       getNaming(),
       }),
     });
     const d=await r.json();
@@ -436,30 +609,25 @@ async function startScan(){
   }
 }
 
-function onScanDone(jobData){
+function onScanDone(jd){
   busy('btnScan','scanSpinner',false);
-  if(jobData.status==='error'){ toast('Scan failed — see terminal.',false); return; }
+  if(jd.status==='error'){ toast('Scan failed — see terminal.',false); return; }
 
-  const res=jobData.result;
+  const res=jd.result;
   cacheKey=res.cache_key||'';
   if(res.server_url) absCtx.server_url=res.server_url;
   if(res.library_id) absCtx.library_id=res.library_id;
 
   renderStats(res.stats);
-  show('statsSection');
-  show('logSection');
+  show('statsSection'); show('logSection');
 
-  if(res.changes_count===0){
-    hide('changesSection'); show('tidySection');
-  }else{
-    renderChanges(res.changes, res.changes_count);
-    show('changesSection');
-  }
+  if(res.changes_count===0){ hide('changesSection'); show('tidySection'); }
+  else{ renderChanges(res.changes,res.changes_count); show('changesSection'); }
+
   setTermTitle('✅ Scan complete');
   toast(`Scan done — ${res.changes_count} books need tidying.`);
 }
 
-// ── Render helpers ────────────────────────────────────────────────────────────
 function renderStats(s){
   $('statsGrid').innerHTML=[
     ['📖',s.books,          'Books'],
@@ -488,47 +656,37 @@ function renderChanges(changes,total){
   $('changesList').innerHTML=html+more;
 }
 
-function esc(s){
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
 // ── Actions ───────────────────────────────────────────────────────────────────
 async function startApply()  { await runJob('/api/apply',{dry_run:false},'⚙ Applying changes…',   '✅ Apply complete',   '❌ Apply failed'); }
 async function startDryRun() { await runJob('/api/apply',{dry_run:true}, '⚙ Dry run preview…',    '✅ Dry run complete', '❌ Dry run failed'); }
+async function startCleanEmpty(dry){ await runJob('/api/clean-empty',{dry_run:dry}, dry?'⚙ Dry run — empty dirs…':'⚙ Cleaning empty directories…','✅ Cleanup complete','❌ Cleanup failed'); }
 
-async function startCleanEmpty(dry){
-  await runJob('/api/clean-empty',{dry_run:dry},
-    dry?'⚙ Dry run — empty dirs…':'⚙ Cleaning empty directories…',
-    '✅ Cleanup complete','❌ Cleanup failed');
-}
-
-async function runJob(endpoint, extraPayload, titleRunning, titleDone, titleFailed){
-  if(!cacheKey&&endpoint==='/api/apply'){ toast('Scan first.',false); return; }
+async function runJob(endpoint, extra, tRunning, tDone, tFail){
+  if(endpoint==='/api/apply'&&!cacheKey){ toast('Scan first.',false); return; }
   if(!currentPath){ toast('Scan first.',false); return; }
 
-  show('termSection'); clearTerm();
-  setTermTitle(titleRunning);
+  show('termSection'); clearTerm(); setTermTitle(tRunning);
 
   const payload={
     library_path: currentPath,
     server_url:   absCtx.server_url,
     token:        absCtx.token,
     library_id:   absCtx.library_id,
-    ...extraPayload,
+    ...extra,
   };
   if(endpoint==='/api/apply') payload.cache_key=cacheKey;
 
   try{
     const r=await fetch(endpoint,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload),
     });
     const d=await r.json();
     if(d.error){ appendTerm('ERROR: '+d.error); toast(d.error,false); return; }
     poll(d.job_id, jd=>{
-      setTermTitle(jd.status==='done'?titleDone:titleFailed);
-      toast(jd.status==='done'?titleDone.replace('✅ ',''):titleFailed.replace('❌ ',''), jd.status==='done');
+      const ok=jd.status==='done';
+      setTermTitle(ok?tDone:tFail);
+      toast(ok?tDone.replace('✅ ',''):tFail.replace('❌ ',''), ok);
     });
   }catch(e){ appendTerm('ERROR: '+e.message); toast(e.message,false); }
 }
@@ -547,6 +705,13 @@ async function refreshLog(){
   const d=await r.json();
   $('logContent').textContent=d.content||d.error||'(empty)';
 }
+
+// ── Auto-connect if env credentials present ───────────────────────────────────
+window.addEventListener('DOMContentLoaded', ()=>{
+  if($('absUrl').value.trim() && $('absToken').value.trim()){
+    connect();
+  }
+});
 </script>
 </body>
 </html>

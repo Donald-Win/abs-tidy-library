@@ -1,7 +1,7 @@
 """
 ABS Tidy Library – Audiobookshelf API Client
-Wraps the ABS REST API for connection testing, library listing,
-item fetching, and triggering rescans after file moves.
+All metadata is sourced exclusively from the ABS API.
+No metadata.json files are read.
 """
 
 from __future__ import annotations
@@ -24,31 +24,30 @@ except ImportError:
 class ABSLibrary:
     id: str
     name: str
-    root_path: str          # first folder's fullPath
-    media_type: str         # "book" | "podcast"
-    item_count: int = 0
+    root_path: str
+    media_type: str
 
 
 @dataclass
 class ABSBookItem:
-    """A single audiobook item as returned by the ABS API, normalised."""
+    """A single audiobook item, normalised from the ABS API response."""
     item_id: str
     title: str
     author: str
     narrator: str
-    series_name: str        # e.g. "The Stormlight Archive"
-    series_sequence: str    # e.g. "1" or "2.5"
+    series_name: str
+    series_sequence: str    # raw sequence e.g. "1", "2.5" — padded later
+    year: str               # publish year as string, e.g. "2001" or ""
     duration: float
-    size: int               # bytes
-    book_path: str          # full filesystem path to book directory
-    audio_files: List[str]  # full filesystem paths, sorted
-    all_files: List[str]    # all files (audio + cover + metadata etc.)
+    size: int
+    book_path: str          # filesystem path to book directory
+    audio_files: List[str]  # sorted filesystem paths of audio files
+    all_files: List[str]    # all files including covers, metadata etc.
 
 
 # ── Client ─────────────────────────────────────────────────────────────────────
 
 class ABSClient:
-    """Lightweight Audiobookshelf API client using requests."""
 
     def __init__(self, base_url: str, token: str, timeout: int = 30):
         if not _REQUESTS_OK:
@@ -62,27 +61,24 @@ class ABSClient:
             "Accept":        "application/json",
         })
 
-    # ── Internal ───────────────────────────────────────────────────────────────
-
     def _get(self, path: str, **kwargs) -> Any:
-        url = f"{self.base_url}{path}"
+        url  = f"{self.base_url}{path}"
         resp = self.session.get(url, timeout=self.timeout, **kwargs)
         resp.raise_for_status()
         return resp.json()
 
     def _post(self, path: str, **kwargs) -> Any:
-        url = f"{self.base_url}{path}"
+        url  = f"{self.base_url}{path}"
         resp = self.session.post(url, timeout=self.timeout, **kwargs)
         resp.raise_for_status()
         return resp.json() if resp.content else {}
 
-    # ── Public API ─────────────────────────────────────────────────────────────
+    # ── Connection ─────────────────────────────────────────────────────────────
 
     def ping(self) -> Tuple[bool, str]:
         """
-        Validate connectivity and token in one step via /api/me.
-        (ABS does not have a /api/ping endpoint on all versions.)
-        Returns (ok: bool, message: str).
+        Validate connectivity and token via /api/me.
+        Returns (ok, message) — message is username on success or error detail.
         """
         try:
             me       = self._get("/api/me")
@@ -102,49 +98,46 @@ class ABSClient:
         except Exception as e:
             return False, f"Unexpected error: {e}"
 
+    # ── Libraries ──────────────────────────────────────────────────────────────
+
     def get_libraries(self) -> List[ABSLibrary]:
-        """Return all libraries on the server (books only)."""
         data = self._get("/api/libraries")
         libs: List[ABSLibrary] = []
         for raw in data.get("libraries", []):
             if raw.get("mediaType") != "book":
                 continue
             folders = raw.get("folders", [])
-            root = folders[0].get("fullPath", "") if folders else ""
+            root    = folders[0].get("fullPath", "") if folders else ""
             libs.append(ABSLibrary(
                 id=raw["id"],
                 name=raw.get("name", "Unnamed"),
                 root_path=root,
-                media_type=raw.get("mediaType", "book"),
+                media_type="book",
             ))
         return libs
+
+    # ── Items ──────────────────────────────────────────────────────────────────
 
     def get_library_items(
         self,
         library_id: str,
         emit=None,
     ) -> List[ABSBookItem]:
-        """
-        Fetch all book items in a library.
-        Uses limit=0 to get everything in one request.
-        Falls back to paginated fetching if the server rejects limit=0.
-        """
+        """Fetch all book items; tries limit=0 first then paginates."""
         if emit:
-            emit("Fetching library items from Audiobookshelf…")
+            emit("Fetching library items from Audiobookshelf API…")
 
         try:
-            data = self._get(
+            data      = self._get(
                 f"/api/libraries/{library_id}/items",
-                params={"limit": 0, "minified": 0, "include": "rssfeed"},
+                params={"limit": 0, "minified": 0},
             )
             raw_items = data.get("results", [])
         except Exception:
-            # Paginated fallback
             raw_items = []
-            page = 0
-            limit = 100
+            page, limit = 0, 100
             while True:
-                data = self._get(
+                data  = self._get(
                     f"/api/libraries/{library_id}/items",
                     params={"limit": limit, "page": page, "minified": 0},
                 )
@@ -159,20 +152,14 @@ class ABSClient:
         if emit:
             emit(f"Retrieved {len(raw_items)} items from ABS.")
 
-        return [self._normalise_item(r) for r in raw_items if r]
+        items = [self._normalise_item(r) for r in raw_items if r]
+        return [i for i in items if i is not None]
+
+    # ── Rescan ─────────────────────────────────────────────────────────────────
 
     def trigger_library_scan(self, library_id: str) -> bool:
-        """Ask ABS to rescan a library (after file moves)."""
         try:
             self._post(f"/api/libraries/{library_id}/scan")
-            return True
-        except Exception:
-            return False
-
-    def trigger_item_scan(self, item_id: str) -> bool:
-        """Ask ABS to rescan a single item."""
-        try:
-            self._post(f"/api/items/{item_id}/scan")
             return True
         except Exception:
             return False
@@ -183,78 +170,61 @@ class ABSClient:
 
     def _normalise_item(self, raw: dict) -> Optional[ABSBookItem]:
         try:
-            media    = raw.get("media", {})
-            meta     = media.get("metadata", {})
-            book_path = raw.get("path", "")
+            media = raw.get("media", {})
+            meta  = media.get("metadata", {})
 
-            title    = self._first(meta, ["title"]) or "Unknown Title"
-            author   = self._first(meta, ["authorName"]) or "Unknown Author"
-            narrator = self._first(meta, ["narratorName"]) or ""
+            title     = self._scalar(meta, "title")     or "Unknown Title"
+            author    = self._scalar(meta, "authorName") or "Unknown Author"
+            narrator  = self._scalar(meta, "narratorName") or ""
+            year      = str(meta.get("publishedYear") or meta.get("publishYear") or "").strip()
 
             series_name, series_seq = self._parse_series(meta)
 
-            duration = float(media.get("duration") or 0)
-            size     = int(media.get("size") or raw.get("size") or 0)
+            duration  = float(media.get("duration") or 0)
+            size      = int(media.get("size") or raw.get("size") or 0)
+            book_path = raw.get("path", "")
 
-            # Collect files from libraryFiles
-            all_files  = []
+            all_files   = []
             audio_files = []
             for lf in raw.get("libraryFiles", []):
-                fmeta = lf.get("metadata", {})
-                fpath = fmeta.get("path", "")
+                fpath = lf.get("metadata", {}).get("path", "")
                 if not fpath:
                     continue
                 all_files.append(fpath)
                 if Path(fpath).suffix.lower() in self.AUDIO_EXTS:
                     audio_files.append(fpath)
 
-            # Natural sort audio files
             audio_files = sorted(audio_files, key=lambda p: _natural_key(Path(p).name))
 
             return ABSBookItem(
                 item_id=raw.get("id", ""),
-                title=title,
-                author=author,
-                narrator=narrator,
-                series_name=series_name,
-                series_sequence=series_seq,
-                duration=duration,
-                size=size,
+                title=title, author=author, narrator=narrator,
+                series_name=series_name, series_sequence=series_seq,
+                year=year, duration=duration, size=size,
                 book_path=book_path,
-                audio_files=audio_files,
-                all_files=all_files,
+                audio_files=audio_files, all_files=all_files,
             )
         except Exception:
             return None
 
-    def _first(self, meta: dict, keys: List[str]) -> str:
-        for k in keys:
-            v = meta.get(k)
-            if v:
-                if isinstance(v, list):
-                    v = v[0] if v else None
-                if v:
-                    s = str(v)
-                    if "," in s:
-                        s = s.split(",")[0]
-                    return s.strip()
-        return ""
+    def _scalar(self, meta: dict, key: str) -> str:
+        v = meta.get(key)
+        if not v:
+            return ""
+        if isinstance(v, list):
+            v = v[0] if v else ""
+        s = str(v).strip()
+        return s.split(",")[0].strip() if "," in s else s
 
     def _parse_series(self, meta: dict) -> Tuple[str, str]:
-        """
-        Extract (series_name, sequence) from ABS item metadata.
-        Handles both the new series-array format and the legacy seriesName string.
-        """
-        # New format: meta.series = [{"name": "...", "sequence": "1"}]
+        # New format: series = [{"name": "...", "sequence": "1"}]
         series_arr = meta.get("series")
         if series_arr and isinstance(series_arr, list):
             first = series_arr[0]
             if isinstance(first, dict):
-                name = first.get("name", "").strip()
-                seq  = str(first.get("sequence") or "").strip()
-                return name, seq
+                return first.get("name", "").strip(), str(first.get("sequence") or "").strip()
 
-        # Legacy format: meta.seriesName = "Series Name #1"
+        # Legacy: seriesName = "Name #1"
         series_str = meta.get("seriesName", "")
         if series_str and "#" in series_str:
             parts = series_str.split("#", 1)
@@ -264,8 +234,6 @@ class ABSClient:
 
         return "", ""
 
-
-# ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _natural_key(s: str) -> list:
     return [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', s)]

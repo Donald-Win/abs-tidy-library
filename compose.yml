@@ -1,0 +1,27 @@
+services:
+  abs-tidy-library:
+    image: donaldwin/abs-tidy-library:latest
+    container_name: abs-tidy-library
+    restart: unless-stopped
+    ports:
+      - "5050:8080"
+    volumes:
+      - /path/to/your/audiobooks:/library   # ← change this to your audiobook path
+
+    environment:
+      # ── Audiobookshelf connection (pre-fills the UI, no need to re-enter) ──
+      ABS_SERVER_URL: "http://192.168.1.100:13378"   # ← your ABS server URL
+      ABS_TOKEN:      "your-api-key-here"             # ← API Key from ABS Settings → API Keys
+      ABS_LIBRARY_ID: ""                              # ← optional: auto-select a library
+                                                      #   find it in ABS Settings → Libraries
+
+      # ── Library filesystem path inside this container ─────────────────────
+      LIBRARY_PATH: "/library"
+
+      # ── Naming convention (optional — configure in the UI instead) ─────────
+      # Tokens: {Author} {Title} {Series} {Series-Index} {Narrator} {Year} {Part-Index}
+      #
+      # NAMING_FOLDER_STANDALONE: "{Author}/{Title}"
+      # NAMING_FOLDER_SERIES:     "{Author}/{Series}/{Series-Index} {Title}"
+      # NAMING_FILE_SINGLE:       "{Author} - {Title}"
+      # NAMING_FILE_MULTI:        "{Author} - {Title} - Part {Part-Index}"
