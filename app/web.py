@@ -15,7 +15,7 @@ from pathlib import Path
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 
 from tidylibrary_core import (
-    scan_library, scan_library_abs, apply_changes, clean_empty_dirs,
+    scan_library_abs, apply_changes, clean_empty_dirs,
     log_event,
 )
 from abs_api import ABSClient
@@ -57,10 +57,6 @@ def finish_job(jid: str, result: dict, error: str = "") -> None:
             jobs[jid]["result"] = result
             if error:
                 jobs[jid]["log"].append(f"ERROR: {error}")
-
-
-def cache_key_file(library_path: str) -> str:
-    return f"file:{library_path}"
 
 
 def cache_key_abs(server_url: str, library_id: str) -> str:
@@ -162,43 +158,6 @@ def api_abs_libraries():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-# ── Routes: File-mode scan ────────────────────────────────────────────────────
-
-@app.route("/api/scan", methods=["POST"])
-def api_scan():
-    """Start a file-mode scan job."""
-    data         = request.get_json(force=True)
-    library_path = data.get("library_path", "").strip()
-
-    if not library_path:
-        return jsonify({"error": "library_path is required"}), 400
-
-    root_path = Path(library_path)
-    if not root_path.exists() or not root_path.is_dir():
-        return jsonify({"error": f"Path does not exist or is not a directory: {library_path}"}), 400
-
-    jid = new_job()
-    emit = emit_to(jid)
-
-    def _run():
-        try:
-            stats, planned = scan_library(root_path, emit)
-            ck = cache_key_file(library_path)
-            with cache_lock:
-                cache[ck] = (stats, planned)
-            finish_job(jid, {
-                "cache_key":     ck,
-                "stats":         stats.to_dict(),
-                "changes_count": len(planned),
-                "changes":       [bm.to_dict(root_path) for bm in planned],
-            })
-        except Exception as e:
-            finish_job(jid, {}, str(e))
-
-    threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"job_id": jid})
 
 
 # ── Routes: ABS-mode scan ─────────────────────────────────────────────────────

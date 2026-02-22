@@ -5,298 +5,243 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>ABS Tidy Library</title>
 <style>
-/* ── Reset ───────────────────────────────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0f1117; --surface:#1a1d27; --surface2:#22263a; --border:#2e3350;
-  --accent:#6c63ff; --accent2:#4ade80; --warn:#f59e0b; --danger:#ef4444;
-  --info:#38bdf8; --text:#e2e8f0; --muted:#64748b; --radius:10px;
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;
+  --accent:#6c63ff;--accent2:#4ade80;--warn:#f59e0b;--danger:#ef4444;
+  --info:#38bdf8;--text:#e2e8f0;--muted:#64748b;--radius:10px;
 }
-html,body{height:100%}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.wrap{max-width:900px;margin:0 auto;padding:0 1.5rem 4rem}
 
-/* ── Layout ──────────────────────────────────────────────────────────────── */
-.app-wrap{max-width:980px;margin:0 auto;padding:0 1.5rem 4rem}
-
-/* ── Header ──────────────────────────────────────────────────────────────── */
+/* Header */
 header{display:flex;align-items:center;gap:1rem;padding:2rem 0 1.5rem;border-bottom:1px solid var(--border);margin-bottom:2rem}
 .logo{font-size:2rem}
 header h1{font-size:1.5rem;font-weight:700}
-header span{font-size:.85rem;color:var(--muted);display:block;margin-top:2px}
+header p{font-size:.85rem;color:var(--muted);margin-top:2px}
 
-/* ── Mode tabs ───────────────────────────────────────────────────────────── */
-.mode-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.5rem}
-.mode-tab{flex:1;padding:.7rem 1rem;background:var(--surface);border:none;color:var(--muted);font-size:.9rem;font-weight:600;cursor:pointer;transition:background .2s,color .2s;text-align:center}
-.mode-tab:hover{background:var(--surface2)}
-.mode-tab.active{background:var(--accent);color:#fff}
-
-/* ── Cards ───────────────────────────────────────────────────────────────── */
+/* Cards */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.5rem}
-.card-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:1rem}
+.card-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:1rem}
 
-/* ── Form elements ───────────────────────────────────────────────────────── */
+/* Fields */
 .field{margin-bottom:1rem}
-.field label{display:block;font-size:.82rem;font-weight:600;color:var(--muted);margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.05em}
-.field input,.field select{
-  width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;
-  padding:.65rem .9rem;color:var(--text);font-size:.93rem;outline:none;transition:border-color .2s
-}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.05em}
+.field input,.field select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.65rem .9rem;color:var(--text);font-size:.93rem;outline:none;transition:border-color .2s}
 .field input:focus,.field select:focus{border-color:var(--accent)}
 .field select option{background:var(--surface)}
-.hint{font-size:.78rem;color:var(--muted);margin-top:.4rem}
-.field-row{display:flex;gap:.75rem;flex-wrap:wrap}
-.field-row .field{flex:1;min-width:160px;margin-bottom:0}
+.row{display:flex;gap:.75rem;flex-wrap:wrap}
+.row .field{flex:1;min-width:180px}
+.hint{font-size:.78rem;color:var(--muted);margin-top:.4rem;line-height:1.5}
 
-/* ── Status badge ────────────────────────────────────────────────────────── */
+/* Badges */
 .badge{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .75rem;border-radius:20px;font-size:.78rem;font-weight:600}
 .badge-ok{background:rgba(74,222,128,.15);color:var(--accent2);border:1px solid rgba(74,222,128,.3)}
 .badge-fail{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
-.badge-info{background:rgba(56,189,248,.12);color:var(--info);border:1px solid rgba(56,189,248,.25)}
 
-/* ── Buttons ─────────────────────────────────────────────────────────────── */
+/* Buttons */
 .btn{display:inline-flex;align-items:center;gap:.4rem;padding:.65rem 1.2rem;border:none;border-radius:6px;font-size:.9rem;font-weight:600;cursor:pointer;transition:opacity .2s,transform .1s;white-space:nowrap}
-.btn:hover{opacity:.88}.btn:active{transform:scale(.97)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:hover{opacity:.85}.btn:active{transform:scale(.97)}.btn:disabled{opacity:.35;cursor:not-allowed}
 .btn-primary{background:var(--accent);color:#fff}
 .btn-success{background:var(--accent2);color:#0f1117}
 .btn-warn{background:var(--warn);color:#0f1117}
-.btn-danger{background:var(--danger);color:#fff}
 .btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
 .btn-sm{padding:.4rem .85rem;font-size:.82rem}
+.btn-row{display:flex;flex-wrap:wrap;gap:.65rem;margin-top:.85rem}
 
-/* ── Stats ───────────────────────────────────────────────────────────────── */
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1rem}
-.stat-item{background:var(--surface2);border-radius:8px;padding:1rem;text-align:center}
-.stat-value{font-size:1.5rem;font-weight:800;color:var(--accent)}
-.stat-label{font-size:.72rem;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:1rem}
+.stat{background:var(--surface2);border-radius:8px;padding:1rem;text-align:center}
+.stat-val{font-size:1.45rem;font-weight:800;color:var(--accent)}
+.stat-lbl{font-size:.7rem;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
 
-/* ── Changes list ────────────────────────────────────────────────────────── */
-.changes-list{max-height:380px;overflow-y:auto}
-.change-item{border-bottom:1px solid var(--border);padding:.75rem 0}
+/* Changes */
+.changes-list{max-height:360px;overflow-y:auto}
+.change-item{border-bottom:1px solid var(--border);padding:.7rem 0}
 .change-item:last-child{border-bottom:none}
-.change-title{font-weight:600;font-size:.93rem}
-.change-series{font-size:.78rem;color:var(--accent);margin-top:2px}
-.change-author{font-size:.78rem;color:var(--muted);margin-top:1px}
-.change-path{font-size:.75rem;color:var(--muted);margin-top:5px;font-family:monospace}
+.change-title{font-weight:600;font-size:.92rem}
+.change-series{font-size:.77rem;color:var(--accent);margin-top:2px}
+.change-author{font-size:.77rem;color:var(--muted)}
+.change-path{font-size:.73rem;color:var(--muted);margin-top:4px;font-family:monospace;word-break:break-all}
 .arrow{color:var(--accent2);margin:0 4px}
 .more-badge{display:inline-block;background:var(--surface2);border-radius:20px;padding:.3rem .9rem;font-size:.8rem;color:var(--muted);margin-top:.75rem}
 
-/* ── Action bar ──────────────────────────────────────────────────────────── */
-.action-bar{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1rem}
+/* Terminal */
+.terminal{background:#0a0c12;border:1px solid var(--border);border-radius:8px;padding:1rem;font-family:'Courier New',monospace;font-size:.8rem;line-height:1.6;max-height:320px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:#a3e635}
+.t-err{color:var(--danger)}.t-ok{color:var(--accent2)}.t-info{color:#93c5fd}
 
-/* ── Terminal ────────────────────────────────────────────────────────────── */
-.terminal{background:#0a0c12;border:1px solid var(--border);border-radius:var(--radius);padding:1rem;font-family:'Courier New',monospace;font-size:.82rem;line-height:1.6;max-height:340px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:#a3e635}
-.term-err{color:var(--danger)}.term-done{color:var(--accent2)}.term-info{color:#93c5fd}
-
-/* ── Spinner ─────────────────────────────────────────────────────────────── */
+/* Spinner */
 .spinner{display:inline-block;width:13px;height:13px;border:2px solid transparent;border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── Section visibility ──────────────────────────────────────────────────── */
+/* Section show/hide */
 .section{display:none}.section.active{display:block}
 
-/* ── Log viewer ──────────────────────────────────────────────────────────── */
+/* Log viewer */
 .log-toggle{cursor:pointer;user-select:none;color:var(--accent)}
-.log-panel{display:none;margin-top:1rem}.log-panel.open{display:block}
+.log-body{display:none;margin-top:1rem}.log-body.open{display:block}
 
-/* ── Divider ─────────────────────────────────────────────────────────────── */
-.divider{height:1px;background:var(--border);margin:1rem 0}
-
-/* ── Tidy notice ─────────────────────────────────────────────────────────── */
-.tidy-center{text-align:center;padding:1rem 0}
+/* Tidy notice */
+.tidy-center{text-align:center;padding:1.5rem 0}
 .tidy-center .emoji{font-size:2.5rem}
 .tidy-center h2{font-size:1.1rem;margin-top:.5rem}
-.tidy-center p{color:var(--muted);font-size:.88rem;margin-top:.4rem}
+.tidy-center p{color:var(--muted);font-size:.87rem;margin-top:.35rem}
 
-/* ── Toast ───────────────────────────────────────────────────────────────── */
-#toast{position:fixed;bottom:2rem;right:2rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.75rem 1.2rem;font-size:.88rem;opacity:0;transform:translateY(10px);transition:all .3s;z-index:999;max-width:340px}
+/* Toast */
+#toast{position:fixed;bottom:2rem;right:2rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.75rem 1.2rem;font-size:.87rem;opacity:0;transform:translateY(10px);transition:all .3s;z-index:999;max-width:340px}
 #toast.show{opacity:1;transform:translateY(0)}
 #toast.ok{border-left:3px solid var(--accent2)}
 #toast.bad{border-left:3px solid var(--danger)}
 
-/* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 </style>
 </head>
 <body>
-<div class="app-wrap">
+<div class="wrap">
 
   <!-- Header -->
   <header>
     <div class="logo">📚</div>
     <div>
       <h1>ABS Tidy Library</h1>
-      <span>Audiobookshelf Library Organiser</span>
+      <p>Audiobookshelf Library Organiser</p>
     </div>
   </header>
 
-  <!-- Mode tabs -->
-  <div class="mode-tabs">
-    <button class="mode-tab active" id="tabFile" onclick="switchMode('file')">
-      📁 File Mode
-    </button>
-    <button class="mode-tab" id="tabAbs" onclick="switchMode('abs')">
-      🔗 Audiobookshelf API Mode
-    </button>
+  <!-- ── Step 1: Connection ─────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">🔗 Audiobookshelf Connection</div>
+
+    <div class="row">
+      <div class="field">
+        <label>Server URL</label>
+        <input type="text" id="absUrl" placeholder="http://192.168.1.100:13378"
+               autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
+      </div>
+      <div class="field">
+        <label>API Key / Token</label>
+        <input type="password" id="absToken" placeholder="Paste your API Key here"
+               autocomplete="off"/>
+      </div>
+    </div>
+
+    <div class="hint">
+      Create an API Key at <strong>ABS → Settings → API Keys → Add API Key</strong>. 
+      Copy it immediately — it's only shown once.
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnTest" onclick="testConnection()">
+        <span class="spinner" id="testSpinner" style="display:none"></span>
+        Connect
+      </button>
+      <button class="btn btn-ghost btn-sm" id="btnDiagnose" onclick="diagnose()">
+        🔍 Diagnose
+      </button>
+      <span id="connStatus"></span>
+    </div>
+
+    <!-- Diagnostics output -->
+    <div id="diagPanel" style="display:none;margin-top:1rem">
+      <div class="card-title" style="margin-bottom:.5rem">🔍 Raw Diagnostic Output</div>
+      <div class="terminal" id="diagOutput"></div>
+    </div>
   </div>
 
-  <!-- ══════════════════════ FILE MODE ══════════════════════════ -->
-  <div id="panelFile">
-    <div class="card">
-      <div class="card-title">📁 Library Path</div>
-      <div class="field">
-        <label>Filesystem path to your audiobook library</label>
-        <input type="text" id="libPath" placeholder="/library"
-               value="{{ default_path }}"/>
-        <div class="hint">Mount your audiobook directory to <code>/library</code> in Docker, or enter a custom path.</div>
+  <!-- ── Step 2: Library selector (shown after connect) ────────── -->
+  <div class="card section" id="libCard">
+    <div class="card-title">📚 Select Library</div>
+
+    <div class="field">
+      <label>Audiobook Library</label>
+      <select id="libSelect" onchange="onLibrarySelect()">
+        <option value="">— choose a library —</option>
+      </select>
+    </div>
+
+    <div class="field section" id="pathField">
+      <label>Filesystem path (inside this container)</label>
+      <input type="text" id="libPath" placeholder="/library"
+             autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
+      <div class="hint">
+        ABS reports root: <code id="reportedPath">—</code><br>
+        This must be where the library files are mounted inside the ABS Tidy container.
+        Usually <code>/library</code> if you're using the same volume mount.
       </div>
-      <button class="btn btn-primary" id="btnScan" onclick="startFileScan()">
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnScan" onclick="startScan()" disabled>
         <span class="spinner" id="scanSpinner" style="display:none"></span>
         Scan Library
       </button>
     </div>
   </div>
 
-  <!-- ══════════════════════ ABS MODE ═══════════════════════════ -->
-  <div id="panelAbs" style="display:none">
-    <div class="card">
-      <div class="card-title">🔗 Audiobookshelf Connection</div>
-
-      <div class="field-row">
-        <div class="field">
-          <label>Server URL</label>
-          <input type="text" id="absUrl" placeholder="http://192.168.1.100:13378"/>
-        </div>
-        <div class="field">
-          <label>API Token</label>
-          <input type="password" id="absToken" placeholder="Your ABS API token"/>
-        </div>
-      </div>
-
-      <div class="hint" style="margin-bottom:.75rem">
-        Use an <strong>API Key</strong> (Settings → API Keys → Add API Key) <em>or</em>
-        a <strong>user token</strong> (Settings → Users → your user → API Token).
-        API Keys are recommended — copy the full token when created, it won't be shown again.
-      </div>
-
-      <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
-        <button class="btn btn-ghost btn-sm" id="btnTest" onclick="testAbsConnection()">
-          <span class="spinner" id="testSpinner" style="display:none"></span>
-          Test Connection
-        </button>
-        <button class="btn btn-ghost btn-sm" id="btnDiagnose" onclick="diagnoseConnection()" title="Show raw API responses for debugging">
-          🔍 Diagnose
-        </button>
-        <span id="connStatus" style="margin-left:.25rem"></span>
-      </div>
-
-      <!-- Diagnostics panel -->
-      <div id="diagPanel" style="display:none;margin-top:1rem">
-        <div class="card-title" style="margin-bottom:.5rem">🔍 Raw Diagnostic Results</div>
-        <div class="terminal" id="diagOutput" style="max-height:260px;font-size:.78rem"></div>
-      </div>
-    </div>
-
-    <!-- Library selector (shown after successful connection) -->
-    <div class="card section" id="absLibCard">
-      <div class="card-title">📚 Select Library</div>
-
-      <div class="field">
-        <label>Audiobook Library</label>
-        <select id="absLibSelect" onchange="onLibrarySelect()">
-          <option value="">— choose a library —</option>
-        </select>
-      </div>
-
-      <div class="field section" id="absPathField">
-        <label>Filesystem path (container/host path to the same library)</label>
-        <input type="text" id="absLibPath" placeholder="/library"/>
-        <div class="hint">
-          ABS reported root: <code id="absReportedPath">—</code><br>
-          This must match where the library files are accessible inside this container.
-          Usually <code>/library</code> if you're using the same volume mount.
-        </div>
-      </div>
-
-      <button class="btn btn-primary" id="btnAbsScan" onclick="startAbsScan()" disabled>
-        <span class="spinner" id="absScanSpinner" style="display:none"></span>
-        Scan via API
-      </button>
-    </div>
-  </div>
-
-  <!-- ══════════════ Shared result sections ═════════════════════ -->
-
-  <!-- Stats -->
+  <!-- ── Stats (shown after scan) ──────────────────────────────── -->
   <div class="card section" id="statsSection">
     <div class="card-title">📊 Library Statistics</div>
     <div class="stats-grid" id="statsGrid"></div>
   </div>
 
-  <!-- Proposed changes -->
+  <!-- ── Proposed changes (shown after scan) ───────────────────── -->
   <div class="card section" id="changesSection">
     <div class="card-title">🔀 Proposed Changes</div>
     <div class="changes-list" id="changesList"></div>
-    <div class="action-bar">
-      <button class="btn btn-warn" onclick="startDryRun()">
-        👁 Dry Run (Preview Only)
-      </button>
-      <button class="btn btn-success" onclick="startApply()">
-        ✅ Apply All Changes
-      </button>
-      <button class="btn btn-ghost" onclick="startCleanEmpty(false)">
-        🗑 Clean Empty Dirs Only
-      </button>
+    <div class="btn-row">
+      <button class="btn btn-warn" onclick="startDryRun()">👁 Dry Run</button>
+      <button class="btn btn-success" onclick="startApply()">✅ Apply All Changes</button>
+      <button class="btn btn-ghost" onclick="startCleanEmpty(false)">🗑 Clean Empty Dirs</button>
     </div>
   </div>
 
-  <!-- All tidy notice -->
+  <!-- ── Already tidy notice ───────────────────────────────────── -->
   <div class="card section" id="tidySection">
     <div class="tidy-center">
       <div class="emoji">✨</div>
       <h2>Library is already tidy!</h2>
       <p>No reorganisation needed.</p>
-      <div class="action-bar" style="justify-content:center;margin-top:1rem">
+      <div class="btn-row" style="justify-content:center;margin-top:1rem">
         <button class="btn btn-ghost" onclick="startCleanEmpty(false)">🗑 Clean Empty Dirs</button>
         <button class="btn btn-ghost btn-sm" onclick="startCleanEmpty(true)">👁 Dry Run</button>
       </div>
     </div>
   </div>
 
-  <!-- Terminal -->
+  <!-- ── Live terminal output ───────────────────────────────────── -->
   <div class="card section" id="termSection">
     <div class="card-title" id="termTitle">⚙ Running…</div>
     <div class="terminal" id="terminal"></div>
   </div>
 
-  <!-- Log viewer -->
+  <!-- ── Log file viewer ───────────────────────────────────────── -->
   <div class="card section" id="logSection">
     <div class="card-title">
       <span class="log-toggle" onclick="toggleLog()">
         📄 tidy_library_log.txt <span id="logArrow">▸</span>
       </span>
     </div>
-    <div class="log-panel" id="logPanel">
-      <div class="terminal" id="logContent">(click to load)</div>
+    <div class="log-body" id="logBody">
+      <div class="terminal" id="logContent">(loading…)</div>
       <button class="btn btn-ghost btn-sm" style="margin-top:.6rem" onclick="refreshLog()">↻ Refresh</button>
     </div>
   </div>
 
-</div><!-- end app-wrap -->
-
+</div><!-- .wrap -->
 <div id="toast"></div>
 
 <script>
 'use strict';
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let mode         = 'file';   // 'file' | 'abs'
-let currentPath  = '';       // filesystem library path
-let cacheKey     = '';       // identifies the scan result in the server cache
-let logOffset    = 0;
-let pollTimer    = null;
-let absContext   = {};       // { server_url, token, library_id } for ABS mode
+let currentPath = '';
+let cacheKey    = '';
+let logOffset   = 0;
+let pollTimer   = null;
+let absCtx      = { server_url:'', token:'', library_id:'' };
 
-// ── DOM helpers ───────────────────────────────────────────────────────────────
+// ── DOM ───────────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 const show = id => $(id).classList.add('active');
 const hide = id => $(id).classList.remove('active');
@@ -306,85 +251,55 @@ function toast(msg, ok=true){
   el.textContent=msg;
   el.className='show '+(ok?'ok':'bad');
   clearTimeout(el._t);
-  el._t=setTimeout(()=>el.className='',3800);
+  el._t=setTimeout(()=>el.className='',4000);
 }
 
 function appendTerm(line){
   const el=$('terminal');
   const d=document.createElement('div');
-  if(line.startsWith('ERROR')||line.startsWith('!!!')) d.className='term-err';
-  else if(line.includes('[DONE]')||line.startsWith('✓')) d.className='term-done';
-  else d.className='term-info';
+  if(/^ERROR|^!!!/.test(line))   d.className='t-err';
+  else if(/^\[DONE\]|^✓/.test(line)) d.className='t-ok';
+  else                            d.className='t-info';
   d.textContent=line;
   el.appendChild(d);
   el.scrollTop=el.scrollHeight;
 }
 
-function clearTerm(){$('terminal').innerHTML='';logOffset=0;}
-function setTermTitle(t){$('termTitle').textContent=t;}
+function clearTerm(){ $('terminal').innerHTML=''; logOffset=0; }
+function setTermTitle(t){ $('termTitle').textContent=t; }
 
-// ── Mode switching ────────────────────────────────────────────────────────────
-function switchMode(m){
-  mode=m;
-  $('tabFile').classList.toggle('active',m==='file');
-  $('tabAbs').classList.toggle('active',m==='abs');
-  $('panelFile').style.display=m==='file'?'block':'none';
-  $('panelAbs').style.display=m==='abs'?'block':'none';
-  // Reset result sections
-  ['statsSection','changesSection','tidySection','termSection','logSection'].forEach(hide);
+function busy(btnId, spinnerId, on){
+  const b=$(btnId); if(b) b.disabled=on;
+  const s=$(spinnerId); if(s) s.style.display=on?'inline-block':'none';
 }
 
-// ── Polling helper ────────────────────────────────────────────────────────────
-function startPolling(jobId, onDone){
+// ── Polling ───────────────────────────────────────────────────────────────────
+function poll(jobId, onDone){
   if(pollTimer) clearInterval(pollTimer);
   pollTimer=setInterval(async()=>{
     try{
       const r=await fetch(`/api/job/${jobId}?offset=${logOffset}`);
       const d=await r.json();
-      (d.log||[]).forEach(line=>appendTerm(line));
+      (d.log||[]).forEach(appendTerm);
       logOffset+=(d.log||[]).length;
       if(d.status==='done'||d.status==='error'){
-        clearInterval(pollTimer);pollTimer=null;
+        clearInterval(pollTimer); pollTimer=null;
         onDone(d);
       }
     }catch(_){}
   },600);
 }
 
-// ── File-mode scan ────────────────────────────────────────────────────────────
-async function startFileScan(){
-  currentPath=$('libPath').value.trim();
-  if(!currentPath){toast('Enter a library path first.',false);return;}
-
-  setBusy('btnScan','scanSpinner',true);
-  ['statsSection','changesSection','tidySection','logSection'].forEach(hide);
-  show('termSection');clearTerm();
-  setTermTitle('⚙ Scanning library…');
-
-  try{
-    const r=await fetch('/api/scan',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({library_path:currentPath}),
-    });
-    const d=await r.json();
-    if(d.error){appendTerm('ERROR: '+d.error);setBusy('btnScan','scanSpinner',false);toast(d.error,false);return;}
-    startPolling(d.job_id,onScanDone);
-  }catch(e){
-    appendTerm('ERROR: '+e.message);
-    setBusy('btnScan','scanSpinner',false);
-    toast(e.message,false);
-  }
-}
-
-// ── ABS: test connection ──────────────────────────────────────────────────────
-async function testAbsConnection(){
+// ── Step 1: Connect ───────────────────────────────────────────────────────────
+async function testConnection(){
   const url=$('absUrl').value.trim();
   const tok=$('absToken').value.trim();
-  if(!url||!tok){toast('Enter server URL and token first.',false);return;}
+  if(!url||!tok){ toast('Enter server URL and API Key first.',false); return; }
 
-  setBusy('btnTest','testSpinner',true);
+  busy('btnTest','testSpinner',true);
   $('connStatus').innerHTML='';
+  hide('libCard');
+  $('diagPanel').style.display='none';
 
   try{
     const r=await fetch('/api/abs/test',{
@@ -393,27 +308,29 @@ async function testAbsConnection(){
       body:JSON.stringify({server_url:url,token:tok}),
     });
     const d=await r.json();
-    setBusy('btnTest','testSpinner',false);
+    busy('btnTest','testSpinner',false);
 
     if(d.ok){
       $('connStatus').innerHTML=`<span class="badge badge-ok">✓ ${esc(d.message||'Connected')}</span>`;
-      toast('Connection successful!');
-      await loadAbsLibraries(url,tok);
+      absCtx.server_url=url;
+      absCtx.token=tok;
+      toast('Connected!');
+      await loadLibraries(url,tok);
     }else{
       $('connStatus').innerHTML=`<span class="badge badge-fail">✗ ${esc(d.error||'Failed')}</span>`;
       toast(d.error||'Connection failed.',false);
     }
   }catch(e){
-    setBusy('btnTest','testSpinner',false);
+    busy('btnTest','testSpinner',false);
     $('connStatus').innerHTML=`<span class="badge badge-fail">✗ ${esc(e.message)}</span>`;
     toast(e.message,false);
   }
 }
 
-async function diagnoseConnection(){
+async function diagnose(){
   const url=$('absUrl').value.trim();
   const tok=$('absToken').value.trim();
-  if(!url||!tok){toast('Enter server URL and token first.',false);return;}
+  if(!url||!tok){ toast('Enter server URL and API Key first.',false); return; }
 
   $('diagPanel').style.display='block';
   $('diagOutput').textContent='Running diagnostics…';
@@ -427,20 +344,18 @@ async function diagnoseConnection(){
     const d=await r.json();
     let out='';
     for(const [name,info] of Object.entries(d)){
-      out+=`── ${name.toUpperCase()} (${info.url||''})\n`;
-      if(info.error){
-        out+=`   ERROR: ${info.error}\n`;
-      }else{
-        out+=`   Status: ${info.status}\n`;
-        out+=`   Body:   ${info.body_snippet}\n`;
-      }
+      out+=`── ${name.toUpperCase()}  ${info.url||''}\n`;
+      if(info.error) out+=`   ERROR: ${info.error}\n`;
+      else           out+=`   Status: ${info.status}\n   Body:   ${info.body_snippet}\n`;
       out+='\n';
     }
     $('diagOutput').textContent=out;
   }catch(e){
-    $('diagOutput').textContent='Diagnose request failed: '+e.message;
+    $('diagOutput').textContent='Request failed: '+e.message;
   }
 }
+
+async function loadLibraries(url,tok){
   try{
     const r=await fetch('/api/abs/libraries',{
       method:'POST',
@@ -448,9 +363,9 @@ async function diagnoseConnection(){
       body:JSON.stringify({server_url:url,token:tok}),
     });
     const d=await r.json();
-    if(d.error){toast(d.error,false);return;}
+    if(d.error){ toast(d.error,false); return; }
 
-    const sel=$('absLibSelect');
+    const sel=$('libSelect');
     sel.innerHTML='<option value="">— choose a library —</option>';
     (d.libraries||[]).forEach(lib=>{
       const o=document.createElement('option');
@@ -459,39 +374,45 @@ async function diagnoseConnection(){
       o.textContent=lib.name;
       sel.appendChild(o);
     });
-    show('absLibCard');
-    absContext={server_url:url,token:tok,library_id:'',library_path:''};
-  }catch(e){toast(e.message,false);}
+
+    // Auto-select if only one library
+    if(d.libraries && d.libraries.length===1){
+      sel.selectedIndex=1;
+      onLibrarySelect();
+    }
+
+    show('libCard');
+  }catch(e){ toast(e.message,false); }
 }
 
 function onLibrarySelect(){
-  const sel=$('absLibSelect');
+  const sel=$('libSelect');
   const opt=sel.options[sel.selectedIndex];
   if(!opt||!opt.value){
-    hide('absPathField');
-    $('btnAbsScan').disabled=true;
+    hide('pathField');
+    $('btnScan').disabled=true;
     return;
   }
-  const reportedPath=opt.dataset.path||'/library';
-  $('absReportedPath').textContent=reportedPath;
-  $('absLibPath').value=reportedPath;
-  absContext.library_id=opt.value;
-  show('absPathField');
-  $('btnAbsScan').disabled=false;
+  const reported=opt.dataset.path||'/library';
+  $('reportedPath').textContent=reported;
+  $('libPath').value=reported;
+  absCtx.library_id=opt.value;
+  show('pathField');
+  $('btnScan').disabled=false;
 }
 
-// ── ABS-mode scan ─────────────────────────────────────────────────────────────
-async function startAbsScan(){
-  const libPath=$('absLibPath').value.trim();
-  if(!libPath){toast('Enter the filesystem path to the library.',false);return;}
-  if(!absContext.library_id){toast('Select a library first.',false);return;}
+// ── Step 2: Scan ──────────────────────────────────────────────────────────────
+async function startScan(){
+  const libPath=$('libPath').value.trim();
+  if(!libPath){ toast('Enter the filesystem path.',false); return; }
+  if(!absCtx.library_id){ toast('Select a library.',false); return; }
 
-  absContext.library_path=libPath;
+  absCtx.library_path=libPath;
   currentPath=libPath;
 
-  setBusy('btnAbsScan','absScanSpinner',true);
+  busy('btnScan','scanSpinner',true);
   ['statsSection','changesSection','tidySection','logSection'].forEach(hide);
-  show('termSection');clearTerm();
+  show('termSection'); clearTerm();
   setTermTitle('⚙ Fetching metadata from ABS…');
 
   try{
@@ -499,54 +420,46 @@ async function startAbsScan(){
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        server_url:   absContext.server_url,
-        token:        absContext.token,
-        library_id:   absContext.library_id,
-        library_path: absContext.library_path,
+        server_url:   absCtx.server_url,
+        token:        absCtx.token,
+        library_id:   absCtx.library_id,
+        library_path: absCtx.library_path,
       }),
     });
     const d=await r.json();
-    if(d.error){appendTerm('ERROR: '+d.error);setBusy('btnAbsScan','absScanSpinner',false);toast(d.error,false);return;}
-    startPolling(d.job_id,onScanDone);
+    if(d.error){ appendTerm('ERROR: '+d.error); busy('btnScan','scanSpinner',false); toast(d.error,false); return; }
+    poll(d.job_id, onScanDone);
   }catch(e){
     appendTerm('ERROR: '+e.message);
-    setBusy('btnAbsScan','absScanSpinner',false);
+    busy('btnScan','scanSpinner',false);
     toast(e.message,false);
   }
 }
 
-// ── Shared scan callback ──────────────────────────────────────────────────────
 function onScanDone(jobData){
-  setBusy('btnScan','scanSpinner',false);
-  setBusy('btnAbsScan','absScanSpinner',false);
+  busy('btnScan','scanSpinner',false);
+  if(jobData.status==='error'){ toast('Scan failed — see terminal.',false); return; }
 
-  if(jobData.status==='error'){
-    toast('Scan failed — see terminal.',false);
-    return;
-  }
   const res=jobData.result;
   cacheKey=res.cache_key||'';
-
-  // Store ABS context fields returned from the scan for use during apply
-  if(res.server_url) absContext.server_url=res.server_url;
-  if(res.token)      absContext.token=res.token;
-  if(res.library_id) absContext.library_id=res.library_id;
+  if(res.server_url) absCtx.server_url=res.server_url;
+  if(res.library_id) absCtx.library_id=res.library_id;
 
   renderStats(res.stats);
   show('statsSection');
   show('logSection');
 
   if(res.changes_count===0){
-    hide('changesSection');show('tidySection');
+    hide('changesSection'); show('tidySection');
   }else{
-    renderChanges(res.changes,res.changes_count);
+    renderChanges(res.changes, res.changes_count);
     show('changesSection');
   }
   setTermTitle('✅ Scan complete');
   toast(`Scan done — ${res.changes_count} books need tidying.`);
 }
 
-// ── Render stats ──────────────────────────────────────────────────────────────
+// ── Render helpers ────────────────────────────────────────────────────────────
 function renderStats(s){
   $('statsGrid').innerHTML=[
     ['📖',s.books,          'Books'],
@@ -557,96 +470,74 @@ function renderStats(s){
     ['⏱️', s.total_duration, 'Total Time'],
     ['💾',s.total_size_gb+' GB','Library Size'],
   ].map(([icon,val,label])=>`
-    <div class="stat-item">
-      <div class="stat-value">${icon}&nbsp;${val}</div>
-      <div class="stat-label">${label}</div>
-    </div>
-  `).join('');
+    <div class="stat">
+      <div class="stat-val">${icon}&nbsp;${val}</div>
+      <div class="stat-lbl">${label}</div>
+    </div>`).join('');
 }
 
-// ── Render changes ────────────────────────────────────────────────────────────
 function renderChanges(changes,total){
-  const preview=changes.slice(0,30);
-  const html=preview.map(c=>`
+  const html=changes.slice(0,30).map(c=>`
     <div class="change-item">
       <div class="change-title">📕 ${esc(c.title)}</div>
       ${c.series?`<div class="change-series">📚 ${esc(c.series)}</div>`:''}
       <div class="change-author">${esc(c.author)}</div>
-      <div class="change-path">
-        <span>${esc(c.old_dir)}</span>
-        <span class="arrow">→</span>
-        <span>${esc(c.target_dir)}</span>
-      </div>
-    </div>
-  `).join('');
-  const more=total>30?`<div class="more-badge">+ ${total-30} more books…</div>`:'';
+      <div class="change-path">${esc(c.old_dir)}<span class="arrow">→</span>${esc(c.target_dir)}</div>
+    </div>`).join('');
+  const more=total>30?`<div class="more-badge">+${total-30} more…</div>`:'';
   $('changesList').innerHTML=html+more;
 }
 
 function esc(s){
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
-async function startApply()   {await runApply(false);}
-async function startDryRun()  {await runApply(true);}
+async function startApply()  { await runJob('/api/apply',{dry_run:false},'⚙ Applying changes…',   '✅ Apply complete',   '❌ Apply failed'); }
+async function startDryRun() { await runJob('/api/apply',{dry_run:true}, '⚙ Dry run preview…',    '✅ Dry run complete', '❌ Dry run failed'); }
 
-async function runApply(dry_run){
-  if(!cacheKey||!currentPath){toast('Scan a library first.',false);return;}
+async function startCleanEmpty(dry){
+  await runJob('/api/clean-empty',{dry_run:dry},
+    dry?'⚙ Dry run — empty dirs…':'⚙ Cleaning empty directories…',
+    '✅ Cleanup complete','❌ Cleanup failed');
+}
 
-  show('termSection');clearTerm();
-  setTermTitle(dry_run?'⚙ Dry run preview…':'⚙ Applying changes…');
+async function runJob(endpoint, extraPayload, titleRunning, titleDone, titleFailed){
+  if(!cacheKey&&endpoint==='/api/apply'){ toast('Scan first.',false); return; }
+  if(!currentPath){ toast('Scan first.',false); return; }
 
-  // Build payload — include ABS context if in ABS mode (for post-apply rescan)
-  const payload={cache_key:cacheKey,library_path:currentPath,dry_run};
-  if(mode==='abs'&&absContext.library_id){
-    payload.server_url = absContext.server_url||'';
-    payload.token      = absContext.token||'';
-    payload.library_id = absContext.library_id||'';
-  }
+  show('termSection'); clearTerm();
+  setTermTitle(titleRunning);
+
+  const payload={
+    library_path: currentPath,
+    server_url:   absCtx.server_url,
+    token:        absCtx.token,
+    library_id:   absCtx.library_id,
+    ...extraPayload,
+  };
+  if(endpoint==='/api/apply') payload.cache_key=cacheKey;
 
   try{
-    const r=await fetch('/api/apply',{
+    const r=await fetch(endpoint,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload),
     });
     const d=await r.json();
-    if(d.error){appendTerm('ERROR: '+d.error);toast(d.error,false);return;}
-    startPolling(d.job_id,jd=>{
-      setTermTitle(jd.status==='done'?(dry_run?'✅ Dry run complete':'✅ Apply complete'):'❌ Apply failed');
-      toast(jd.status==='done'?(dry_run?'Dry run complete.':'Changes applied!'):' Apply failed.',jd.status==='done');
+    if(d.error){ appendTerm('ERROR: '+d.error); toast(d.error,false); return; }
+    poll(d.job_id, jd=>{
+      setTermTitle(jd.status==='done'?titleDone:titleFailed);
+      toast(jd.status==='done'?titleDone.replace('✅ ',''):titleFailed.replace('❌ ',''), jd.status==='done');
     });
-  }catch(e){appendTerm('ERROR: '+e.message);toast(e.message,false);}
-}
-
-async function startCleanEmpty(dry){
-  if(!currentPath){toast('Scan a library first.',false);return;}
-  show('termSection');clearTerm();
-  setTermTitle(dry?'⚙ Dry run — empty dir scan…':'⚙ Cleaning empty directories…');
-
-  try{
-    const r=await fetch('/api/clean-empty',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({library_path:currentPath,dry_run:dry}),
-    });
-    const d=await r.json();
-    if(d.error){appendTerm('ERROR: '+d.error);toast(d.error,false);return;}
-    startPolling(d.job_id,jd=>{
-      setTermTitle(jd.status==='done'?'✅ Cleanup complete':'❌ Cleanup failed');
-      toast(jd.status==='done'?'Cleanup done.':'Cleanup failed.',jd.status==='done');
-    });
-  }catch(e){appendTerm('ERROR: '+e.message);toast(e.message,false);}
+  }catch(e){ appendTerm('ERROR: '+e.message); toast(e.message,false); }
 }
 
 // ── Log viewer ────────────────────────────────────────────────────────────────
 let logOpen=false;
 function toggleLog(){
   logOpen=!logOpen;
-  $('logPanel').classList.toggle('open',logOpen);
+  $('logBody').classList.toggle('open',logOpen);
   $('logArrow').textContent=logOpen?'▾':'▸';
   if(logOpen) refreshLog();
 }
@@ -655,14 +546,6 @@ async function refreshLog(){
   const r=await fetch(`/api/log?library_path=${encodeURIComponent(currentPath)}&lines=150`);
   const d=await r.json();
   $('logContent').textContent=d.content||d.error||'(empty)';
-}
-
-// ── Busy helpers ──────────────────────────────────────────────────────────────
-function setBusy(btnId,spinnerId,busy){
-  const btn=$(btnId);
-  if(btn) btn.disabled=busy;
-  const sp=$(spinnerId);
-  if(sp) sp.style.display=busy?'inline-block':'none';
 }
 </script>
 </body>
