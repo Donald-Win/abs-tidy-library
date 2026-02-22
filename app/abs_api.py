@@ -78,13 +78,74 @@ class ABSClient:
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
-    def ping(self) -> bool:
-        """Return True if the server is reachable and the token is valid."""
+    def ping(self) -> Tuple[bool, str]:
+        """
+        Two-step connection check.
+
+        Step 1 — Connectivity via /api/ping (public, no auth needed).
+        Step 2 — Token validation: tries /api/me first, then /api/libraries
+                 as a fallback (API Keys may have different access to /api/me
+                 depending on ABS version).
+
+        Returns (ok: bool, message: str).
+        """
+        # ── Step 1: connectivity ───────────────────────────────────────────────
         try:
-            data = self._get("/api/ping")
-            return bool(data.get("success"))
+            resp = self.session.get(
+                f"{self.base_url}/api/ping",
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+        except requests.exceptions.ConnectionError:
+            return False, "Cannot reach server. Check the URL and that ABS is running."
+        except requests.exceptions.Timeout:
+            return False, "Connection timed out."
+        except requests.exceptions.HTTPError as e:
+            return False, f"Server error on ping: HTTP {e.response.status_code}"
+        except Exception as e:
+            return False, f"Server unreachable: {e}"
+
+        # ── Step 2a: try /api/me ───────────────────────────────────────────────
+        try:
+            me = self._get("/api/me")
+            username = me.get("username") or me.get("name") or "unknown user"
+            return True, f"Connected as '{username}'"
+        except requests.exceptions.HTTPError as e:
+            me_status = e.response.status_code if e.response is not None else 0
+            me_body   = ""
+            try:
+                me_body = e.response.text[:200]
+            except Exception:
+                pass
+        except Exception as e:
+            me_status = 0
+            me_body   = str(e)
+
+        # ── Step 2b: fallback — try /api/libraries ────────────────────────────
+        # API Keys may not have /api/me access on some ABS versions
+        try:
+            libs = self._get("/api/libraries")
+            count = len(libs.get("libraries", []))
+            return True, f"Connected (API Key) — {count} librar{'ies' if count != 1 else 'y'} found"
+        except requests.exceptions.HTTPError as e:
+            libs_status = e.response.status_code if e.response is not None else 0
         except Exception:
-            return False
+            libs_status = 0
+
+        # ── Both failed — give a detailed error ───────────────────────────────
+        if me_status == 401 or libs_status == 401:
+            return False, (
+                f"Token rejected (401). Make sure you copied the complete API Key. "
+                f"/api/me: {me_status}, /api/libraries: {libs_status}."
+            )
+        if me_status == 403 or libs_status == 403:
+            return False, f"Access denied (403). The key may lack permissions. /api/me: {me_status}."
+        return False, (
+            f"Token validation failed. "
+            f"/api/me returned HTTP {me_status}, "
+            f"/api/libraries returned HTTP {libs_status}. "
+            f"Response: {me_body[:120] if me_body else 'none'}"
+        )
 
     def get_libraries(self) -> List[ABSLibrary]:
         """Return all libraries on the server (books only)."""

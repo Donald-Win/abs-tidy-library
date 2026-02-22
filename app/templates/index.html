@@ -173,14 +173,27 @@ header span{font-size:.85rem;color:var(--muted);display:block;margin-top:2px}
       </div>
 
       <div class="hint" style="margin-bottom:.75rem">
-        Find your token in ABS → Settings → Users → (your user) → API Token.
+        Use an <strong>API Key</strong> (Settings → API Keys → Add API Key) <em>or</em>
+        a <strong>user token</strong> (Settings → Users → your user → API Token).
+        API Keys are recommended — copy the full token when created, it won't be shown again.
       </div>
 
-      <button class="btn btn-ghost btn-sm" id="btnTest" onclick="testAbsConnection()">
-        <span class="spinner" id="testSpinner" style="display:none"></span>
-        Test Connection
-      </button>
-      <span id="connStatus" style="margin-left:.75rem"></span>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-ghost btn-sm" id="btnTest" onclick="testAbsConnection()">
+          <span class="spinner" id="testSpinner" style="display:none"></span>
+          Test Connection
+        </button>
+        <button class="btn btn-ghost btn-sm" id="btnDiagnose" onclick="diagnoseConnection()" title="Show raw API responses for debugging">
+          🔍 Diagnose
+        </button>
+        <span id="connStatus" style="margin-left:.25rem"></span>
+      </div>
+
+      <!-- Diagnostics panel -->
+      <div id="diagPanel" style="display:none;margin-top:1rem">
+        <div class="card-title" style="margin-bottom:.5rem">🔍 Raw Diagnostic Results</div>
+        <div class="terminal" id="diagOutput" style="max-height:260px;font-size:.78rem"></div>
+      </div>
     </div>
 
     <!-- Library selector (shown after successful connection) -->
@@ -383,7 +396,7 @@ async function testAbsConnection(){
     setBusy('btnTest','testSpinner',false);
 
     if(d.ok){
-      $('connStatus').innerHTML='<span class="badge badge-ok">✓ Connected</span>';
+      $('connStatus').innerHTML=`<span class="badge badge-ok">✓ ${esc(d.message||'Connected')}</span>`;
       toast('Connection successful!');
       await loadAbsLibraries(url,tok);
     }else{
@@ -397,7 +410,37 @@ async function testAbsConnection(){
   }
 }
 
-async function loadAbsLibraries(url,tok){
+async function diagnoseConnection(){
+  const url=$('absUrl').value.trim();
+  const tok=$('absToken').value.trim();
+  if(!url||!tok){toast('Enter server URL and token first.',false);return;}
+
+  $('diagPanel').style.display='block';
+  $('diagOutput').textContent='Running diagnostics…';
+
+  try{
+    const r=await fetch('/api/abs/diagnose',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({server_url:url,token:tok}),
+    });
+    const d=await r.json();
+    let out='';
+    for(const [name,info] of Object.entries(d)){
+      out+=`── ${name.toUpperCase()} (${info.url||''})\n`;
+      if(info.error){
+        out+=`   ERROR: ${info.error}\n`;
+      }else{
+        out+=`   Status: ${info.status}\n`;
+        out+=`   Body:   ${info.body_snippet}\n`;
+      }
+      out+='\n';
+    }
+    $('diagOutput').textContent=out;
+  }catch(e){
+    $('diagOutput').textContent='Diagnose request failed: '+e.message;
+  }
+}
   try{
     const r=await fetch('/api/abs/libraries',{
       method:'POST',

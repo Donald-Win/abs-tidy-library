@@ -92,13 +92,49 @@ def api_abs_test():
         return jsonify({"ok": False, "error": "server_url and token are required"}), 400
 
     try:
-        client = ABSClient(server_url, token, timeout=10)
-        ok     = client.ping()
+        client      = ABSClient(server_url, token, timeout=10)
+        ok, message = client.ping()
         if ok:
-            return jsonify({"ok": True})
-        return jsonify({"ok": False, "error": "Server responded but ping failed. Check your token."})
+            return jsonify({"ok": True, "message": message})
+        return jsonify({"ok": False, "error": message})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
+
+
+@app.route("/api/abs/diagnose", methods=["POST"])
+def api_abs_diagnose():
+    """
+    Detailed diagnostic endpoint — returns raw responses from several ABS
+    endpoints so connection issues can be debugged directly in the browser.
+    """
+    data       = request.get_json(force=True)
+    server_url = data.get("server_url", "").strip().rstrip("/")
+    token      = data.get("token", "").strip()
+
+    if not server_url or not token:
+        return jsonify({"error": "server_url and token are required"}), 400
+
+    import requests as req
+    results = {}
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+
+    for name, path in [
+        ("ping",       "/api/ping"),
+        ("me",         "/api/me"),
+        ("libraries",  "/api/libraries"),
+    ]:
+        url = f"{server_url}{path}"
+        try:
+            r = req.get(url, headers=headers, timeout=8)
+            results[name] = {
+                "url":        url,
+                "status":     r.status_code,
+                "body_snippet": r.text[:300],
+            }
+        except Exception as e:
+            results[name] = {"url": url, "error": str(e)}
+
+    return jsonify(results)
 
 
 @app.route("/api/abs/libraries", methods=["POST"])
