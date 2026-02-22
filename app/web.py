@@ -1,7 +1,12 @@
 """
-ABS Tidy Library - Web Application
-Flask backend exposing the core tidylibrary functions via a REST API.
+ABS Tidy Library – Web Application
+Flask backend with dual-mode operation:
+  • FILE mode  — scan metadata.json on the filesystem (original behaviour)
+  • ABS mode   — connect to Audiobookshelf via API, get metadata from there,
+                 still move files via filesystem access
 """
+
+from __future__ import annotations
 
 import os
 import uuid
@@ -9,50 +14,60 @@ import threading
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 
-# Import core functions
 from tidylibrary_core import (
-    scan_library, apply_changes, clean_empty_dirs,
-    LibraryStats, BookMove,
+    scan_library, scan_library_abs, apply_changes, clean_empty_dirs,
+    log_event,
 )
+from abs_api import ABSClient
 
 app = Flask(__name__)
 
-# ── In-memory job store ────────────────────────────────────────────────────────
-# { job_id: { "status": "running"|"done"|"error", "log": [...], "result": {} } }
-jobs: dict = {}
-jobs_lock = threading.Lock()
-
-# ── Scan cache (so scan result can be reused by apply/clean) ──────────────────
-scan_cache: dict = {}  # { library_path: (stats, planned_moves) }
-scan_cache_lock = threading.Lock()
-
-
-def new_job() -> str:
-    job_id = str(uuid.uuid4())
-    with jobs_lock:
-        jobs[job_id] = {"status": "running", "log": [], "result": {}}
-    return job_id
-
-
-def emit_to_job(job_id: str, msg: str) -> None:
-    with jobs_lock:
-        if job_id in jobs:
-            jobs[job_id]["log"].append(msg)
-
-
-def finish_job(job_id: str, result: dict, error: str = "") -> None:
-    with jobs_lock:
-        if job_id in jobs:
-            jobs[job_id]["status"] = "error" if error else "done"
-            jobs[job_id]["result"] = result
-            if error:
-                jobs[job_id]["log"].append(f"ERROR: {error}")
-
-
-# ── Routes ─────────────────────────────────────────────────────────────────────
-
 DEFAULT_LIBRARY_PATH = os.environ.get("LIBRARY_PATH", "/library")
 
+# ── In-memory stores ───────────────────────────────────────────────────────────
+# jobs   — { job_id: { status, log, result } }
+# cache  — { cache_key: (stats, planned_moves) }
+jobs:       dict = {}
+jobs_lock   = threading.Lock()
+cache:      dict = {}
+cache_lock  = threading.Lock()
+
+
+# ── Job helpers ────────────────────────────────────────────────────────────────
+
+def new_job() -> str:
+    jid = str(uuid.uuid4())
+    with jobs_lock:
+        jobs[jid] = {"status": "running", "log": [], "result": {}}
+    return jid
+
+
+def emit_to(jid: str) -> callable:
+    def _emit(msg: str):
+        with jobs_lock:
+            if jid in jobs:
+                jobs[jid]["log"].append(msg)
+    return _emit
+
+
+def finish_job(jid: str, result: dict, error: str = "") -> None:
+    with jobs_lock:
+        if jid in jobs:
+            jobs[jid]["status"] = "error" if error else "done"
+            jobs[jid]["result"] = result
+            if error:
+                jobs[jid]["log"].append(f"ERROR: {error}")
+
+
+def cache_key_file(library_path: str) -> str:
+    return f"file:{library_path}"
+
+
+def cache_key_abs(server_url: str, library_id: str) -> str:
+    return f"abs:{server_url}:{library_id}"
+
+
+# ── Routes: UI ────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
@@ -64,10 +79,61 @@ def api_default_path():
     return jsonify({"path": DEFAULT_LIBRARY_PATH})
 
 
+# ── Routes: ABS connection ────────────────────────────────────────────────────
+
+@app.route("/api/abs/test", methods=["POST"])
+def api_abs_test():
+    """Test connection to an ABS server."""
+    data       = request.get_json(force=True)
+    server_url = data.get("server_url", "").strip().rstrip("/")
+    token      = data.get("token", "").strip()
+
+    if not server_url or not token:
+        return jsonify({"ok": False, "error": "server_url and token are required"}), 400
+
+    try:
+        client = ABSClient(server_url, token, timeout=10)
+        ok     = client.ping()
+        if ok:
+            return jsonify({"ok": True})
+        return jsonify({"ok": False, "error": "Server responded but ping failed. Check your token."})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@app.route("/api/abs/libraries", methods=["POST"])
+def api_abs_libraries():
+    """Return the list of book libraries on an ABS server."""
+    data       = request.get_json(force=True)
+    server_url = data.get("server_url", "").strip().rstrip("/")
+    token      = data.get("token", "").strip()
+
+    if not server_url or not token:
+        return jsonify({"error": "server_url and token are required"}), 400
+
+    try:
+        client = ABSClient(server_url, token)
+        libs   = client.get_libraries()
+        return jsonify({
+            "libraries": [
+                {
+                    "id":        lib.id,
+                    "name":      lib.name,
+                    "root_path": lib.root_path,
+                }
+                for lib in libs
+            ]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Routes: File-mode scan ────────────────────────────────────────────────────
+
 @app.route("/api/scan", methods=["POST"])
 def api_scan():
-    """Start a scan job. Returns job_id immediately."""
-    data = request.get_json(force=True)
+    """Start a file-mode scan job."""
+    data         = request.get_json(force=True)
     library_path = data.get("library_path", "").strip()
 
     if not library_path:
@@ -77,77 +143,159 @@ def api_scan():
     if not root_path.exists() or not root_path.is_dir():
         return jsonify({"error": f"Path does not exist or is not a directory: {library_path}"}), 400
 
-    job_id = new_job()
+    jid = new_job()
+    emit = emit_to(jid)
 
     def _run():
         try:
-            emit = lambda msg: emit_to_job(job_id, msg)
-            stats, planned_moves = scan_library(root_path, emit)
-
-            # Cache result
-            with scan_cache_lock:
-                scan_cache[library_path] = (stats, planned_moves)
-
-            result = {
-                "stats": stats.to_dict(),
-                "changes_count": len(planned_moves),
-                "changes": [bm.to_dict(root_path) for bm in planned_moves],
-            }
-            finish_job(job_id, result)
+            stats, planned = scan_library(root_path, emit)
+            ck = cache_key_file(library_path)
+            with cache_lock:
+                cache[ck] = (stats, planned)
+            finish_job(jid, {
+                "cache_key":     ck,
+                "stats":         stats.to_dict(),
+                "changes_count": len(planned),
+                "changes":       [bm.to_dict(root_path) for bm in planned],
+            })
         except Exception as e:
-            finish_job(job_id, {}, str(e))
+            finish_job(jid, {}, str(e))
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"job_id": job_id})
+    return jsonify({"job_id": jid})
 
+
+# ── Routes: ABS-mode scan ─────────────────────────────────────────────────────
+
+@app.route("/api/abs/scan", methods=["POST"])
+def api_abs_scan():
+    """
+    ABS-mode scan:
+      1. Fetch items from ABS API
+      2. Plan file moves using filesystem paths embedded in each item
+      3. Return stats + proposed changes
+    """
+    data         = request.get_json(force=True)
+    server_url   = data.get("server_url", "").strip().rstrip("/")
+    token        = data.get("token", "").strip()
+    library_id   = data.get("library_id", "").strip()
+    library_path = data.get("library_path", "").strip()  # filesystem root
+
+    if not server_url or not token or not library_id:
+        return jsonify({"error": "server_url, token, and library_id are required"}), 400
+    if not library_path:
+        return jsonify({"error": "library_path (filesystem root) is required"}), 400
+
+    root_path = Path(library_path)
+    if not root_path.exists() or not root_path.is_dir():
+        return jsonify({"error": f"Filesystem path not accessible: {library_path}"}), 400
+
+    jid  = new_job()
+    emit = emit_to(jid)
+
+    def _run():
+        try:
+            client    = ABSClient(server_url, token)
+            abs_items = client.get_library_items(library_id, emit)
+
+            stats, planned = scan_library_abs(abs_items, root_path, emit)
+
+            ck = cache_key_abs(server_url, library_id)
+            with cache_lock:
+                cache[ck] = (stats, planned)
+
+            finish_job(jid, {
+                "cache_key":      ck,
+                "stats":          stats.to_dict(),
+                "changes_count":  len(planned),
+                "changes":        [bm.to_dict(root_path) for bm in planned],
+                # Pass these back so the apply call can trigger a rescan
+                "server_url":     server_url,
+                "token":          token,
+                "library_id":     library_id,
+                "library_path":   library_path,
+            })
+        except Exception as e:
+            finish_job(jid, {}, str(e))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"job_id": jid})
+
+
+# ── Routes: Apply / dry-run ───────────────────────────────────────────────────
 
 @app.route("/api/apply", methods=["POST"])
 def api_apply():
-    """Apply or dry-run planned changes for a previously scanned library."""
-    data = request.get_json(force=True)
+    """Apply (or dry-run) planned changes for a previously scanned library."""
+    data         = request.get_json(force=True)
+    cache_key    = data.get("cache_key", "").strip()
     library_path = data.get("library_path", "").strip()
-    dry_run = bool(data.get("dry_run", False))
+    dry_run      = bool(data.get("dry_run", False))
 
-    if not library_path:
-        return jsonify({"error": "library_path is required"}), 400
+    # ABS post-apply rescan fields (optional)
+    server_url   = data.get("server_url", "").strip()
+    token        = data.get("token", "").strip()
+    library_id   = data.get("library_id", "").strip()
 
-    with scan_cache_lock:
-        cached = scan_cache.get(library_path)
+    if not cache_key or not library_path:
+        return jsonify({"error": "cache_key and library_path are required"}), 400
+
+    with cache_lock:
+        cached = cache.get(cache_key)
 
     if not cached:
         return jsonify({"error": "No scan result found. Please scan first."}), 400
 
-    _, planned_moves = cached
-    if not planned_moves:
+    _, planned = cached
+    if not planned:
         return jsonify({"error": "No changes to apply."}), 400
 
     root_path = Path(library_path)
     log_file  = root_path / "tidy_library_log.txt"
-    job_id    = new_job()
+    jid       = new_job()
+    emit      = emit_to(jid)
 
     def _run():
         try:
-            emit = lambda msg: emit_to_job(job_id, msg)
-            exec_stats = apply_changes(planned_moves, root_path, log_file, dry_run, emit)
+            exec_stats = apply_changes(planned, root_path, log_file, dry_run, emit)
 
             # Invalidate cache so next scan is fresh
-            with scan_cache_lock:
-                scan_cache.pop(library_path, None)
+            with cache_lock:
+                cache.pop(cache_key, None)
 
-            finish_job(job_id, {"exec_stats": exec_stats, "dry_run": dry_run})
+            # Trigger ABS library rescan after real (non-dry) moves
+            rescan_triggered = False
+            if not dry_run and server_url and token and library_id:
+                emit("Triggering Audiobookshelf library rescan…")
+                try:
+                    client = ABSClient(server_url, token)
+                    rescan_triggered = client.trigger_library_scan(library_id)
+                    if rescan_triggered:
+                        emit("✓ ABS library rescan started.")
+                    else:
+                        emit("⚠ Could not trigger ABS rescan — do it manually in ABS settings.")
+                except Exception as e:
+                    emit(f"⚠ ABS rescan error: {e}")
+
+            finish_job(jid, {
+                "exec_stats":       exec_stats,
+                "dry_run":          dry_run,
+                "rescan_triggered": rescan_triggered,
+            })
         except Exception as e:
-            finish_job(job_id, {}, str(e))
+            finish_job(jid, {}, str(e))
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"job_id": job_id})
+    return jsonify({"job_id": jid})
 
+
+# ── Routes: Clean empty dirs ──────────────────────────────────────────────────
 
 @app.route("/api/clean-empty", methods=["POST"])
 def api_clean_empty():
-    """Clean empty directories."""
-    data = request.get_json(force=True)
+    data         = request.get_json(force=True)
     library_path = data.get("library_path", "").strip()
-    dry_run = bool(data.get("dry_run", False))
+    dry_run      = bool(data.get("dry_run", False))
 
     if not library_path:
         return jsonify({"error": "library_path is required"}), 400
@@ -157,40 +305,66 @@ def api_clean_empty():
         return jsonify({"error": "Invalid library path"}), 400
 
     log_file = root_path / "tidy_library_log.txt"
-    job_id   = new_job()
+    jid      = new_job()
+    emit     = emit_to(jid)
 
     def _run():
         try:
-            emit = lambda msg: emit_to_job(job_id, msg)
             cleanup_stats = clean_empty_dirs(root_path, log_file, dry_run, emit)
-            finish_job(job_id, {"cleanup_stats": cleanup_stats, "dry_run": dry_run})
+            finish_job(jid, {"cleanup_stats": cleanup_stats, "dry_run": dry_run})
         except Exception as e:
-            finish_job(job_id, {}, str(e))
+            finish_job(jid, {}, str(e))
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"job_id": job_id})
+    return jsonify({"job_id": jid})
 
 
-@app.route("/api/job/<job_id>")
-def api_job_status(job_id: str):
-    """Poll job status and accumulated log lines."""
+# ── Routes: Job polling ───────────────────────────────────────────────────────
+
+@app.route("/api/job/<jid>")
+def api_job_status(jid: str):
     offset = int(request.args.get("offset", 0))
     with jobs_lock:
-        job = jobs.get(job_id)
+        job = jobs.get(jid)
     if not job:
         return jsonify({"error": "Job not found"}), 404
     return jsonify({
         "status": job["status"],
-        "log": job["log"][offset:],
+        "log":    job["log"][offset:],
         "result": job["result"],
     })
 
 
+@app.route("/api/stream/<jid>")
+def api_stream(jid: str):
+    """Server-Sent Events stream for live terminal output."""
+    def _generate():
+        import time
+        offset = 0
+        while True:
+            with jobs_lock:
+                job = jobs.get(jid)
+            if not job:
+                yield "data: [Job not found]\n\n"
+                return
+            new_lines = job["log"][offset:]
+            for line in new_lines:
+                yield f"data: {line}\n\n"
+            offset += len(new_lines)
+            if job["status"] in ("done", "error"):
+                yield "data: [DONE]\n\n"
+                return
+            time.sleep(0.5)
+
+    return Response(stream_with_context(_generate()), mimetype="text/event-stream")
+
+
+# ── Routes: Log file viewer ───────────────────────────────────────────────────
+
 @app.route("/api/log")
 def api_log():
-    """Return the last N lines of the tidy_library_log.txt."""
     library_path = request.args.get("library_path", "").strip()
-    lines = int(request.args.get("lines", 100))
+    lines        = int(request.args.get("lines", 120))
     if not library_path:
         return jsonify({"error": "library_path required"}), 400
     log_file = Path(library_path) / "tidy_library_log.txt"
@@ -204,29 +378,7 @@ def api_log():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/stream/<job_id>")
-def api_stream(job_id: str):
-    """Server-Sent Events stream for a job."""
-    def _generate():
-        offset = 0
-        while True:
-            with jobs_lock:
-                job = jobs.get(job_id)
-            if not job:
-                yield "data: [Job not found]\n\n"
-                return
-            new_lines = job["log"][offset:]
-            for line in new_lines:
-                yield f"data: {line}\n\n"
-            offset += len(new_lines)
-            if job["status"] in ("done", "error"):
-                yield "data: [DONE]\n\n"
-                return
-            import time
-            time.sleep(0.5)
-
-    return Response(stream_with_context(_generate()), mimetype="text/event-stream")
-
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
