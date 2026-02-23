@@ -250,6 +250,9 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
     </div>
 
     <div class="naming-grid">
+      <div class="field naming-section-header" style="grid-column:1/-1">
+        <span style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">📁 Folder Structure</span>
+      </div>
       <div class="field">
         <label>Standalone folder template</label>
         <input type="text" id="nFolderStandalone" class="mono"
@@ -259,6 +262,9 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
         <label>Series folder template</label>
         <input type="text" id="nFolderSeries" class="mono"
                value="{{ naming.folder_series }}" oninput="updatePreviews()"/>
+      </div>
+      <div class="field naming-section-header" style="grid-column:1/-1;margin-top:.4rem">
+        <span style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">🎵 Standalone File Names</span>
       </div>
       <div class="field">
         <label>Single-file audio filename</label>
@@ -270,6 +276,19 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
         <input type="text" id="nFileMulti" class="mono"
                value="{{ naming.file_multi }}" oninput="updatePreviews()"/>
       </div>
+      <div class="field naming-section-header" style="grid-column:1/-1;margin-top:.4rem">
+        <span style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">📚 Series File Names</span>
+      </div>
+      <div class="field">
+        <label>Series single-file audio filename</label>
+        <input type="text" id="nFileSingleSeries" class="mono"
+               value="{{ naming.file_single_series }}" oninput="updatePreviews()"/>
+      </div>
+      <div class="field">
+        <label>Series multi-part audio filename</label>
+        <input type="text" id="nFileMultiSeries" class="mono"
+               value="{{ naming.file_multi_series }}" oninput="updatePreviews()"/>
+      </div>
     </div>
 
     <!-- Live preview -->
@@ -277,20 +296,28 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
       <div class="card-title" style="margin-bottom:.5rem">Preview</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
         <div>
-          <div class="hint" style="margin-bottom:.25rem">Standalone book</div>
+          <div class="hint" style="margin-bottom:.25rem">Standalone folder</div>
           <div class="preview-box" id="prevStandalone"></div>
         </div>
         <div>
-          <div class="hint" style="margin-bottom:.25rem">Series book</div>
+          <div class="hint" style="margin-bottom:.25rem">Series folder</div>
           <div class="preview-box" id="prevSeries"></div>
         </div>
         <div>
-          <div class="hint" style="margin-bottom:.25rem">Single audio file</div>
+          <div class="hint" style="margin-bottom:.25rem">Standalone single file</div>
           <div class="preview-box" id="prevFileSingle"></div>
         </div>
         <div>
-          <div class="hint" style="margin-bottom:.25rem">Multi-part (part 2 of 12)</div>
+          <div class="hint" style="margin-bottom:.25rem">Standalone multi-part (2 of 12)</div>
           <div class="preview-box" id="prevFileMulti"></div>
+        </div>
+        <div>
+          <div class="hint" style="margin-bottom:.25rem">Series single file</div>
+          <div class="preview-box" id="prevFileSingleSeries"></div>
+        </div>
+        <div>
+          <div class="hint" style="margin-bottom:.25rem">Series multi-part (2 of 12)</div>
+          <div class="preview-box" id="prevFileMultiSeries"></div>
         </div>
       </div>
     </div>
@@ -430,7 +457,7 @@ function poll(jobId, onDone){
   }
 
   // Track focus on naming inputs for token insertion
-  ['nFolderStandalone','nFolderSeries','nFileSingle','nFileMulti'].forEach(id=>{
+  ['nFolderStandalone','nFolderSeries','nFileSingle','nFileMulti','nFileSingleSeries','nFileMultiSeries'].forEach(id=>{
     $(id).addEventListener('focus', ()=>lastFocused=$(id));
   });
 
@@ -564,8 +591,10 @@ function applyPreset(){
   const p=PRESETS[key];
   $('nFolderStandalone').value=p.folder_standalone;
   $('nFolderSeries').value    =p.folder_series;
-  $('nFileSingle').value      =p.file_single;
-  $('nFileMulti').value       =p.file_multi;
+  $('nFileSingle').value            = p.file_single;
+  $('nFileMulti').value             = p.file_multi;
+  $('nFileSingleSeries').value      = p.file_single_series || p.file_single;
+  $('nFileMultiSeries').value       = p.file_multi_series  || p.file_multi;
   updatePreviews();
   $('namingPreset').value='';
 }
@@ -589,8 +618,11 @@ function updatePreviews(){
 
   $('prevStandalone').textContent = renderTemplate($('nFolderStandalone').value, sampleStandalone)+'/';
   $('prevSeries').textContent     = renderTemplate($('nFolderSeries').value,     sampleSeries)+'/';
-  $('prevFileSingle').textContent = renderTemplate($('nFileSingle').value,        sampleSeries)+'.m4b';
-  $('prevFileMulti').textContent  = renderTemplate($('nFileMulti').value,
+  $('prevFileSingle').textContent       = renderTemplate($('nFileSingle').value,       sampleStandalone)+'.m4b';
+  $('prevFileMulti').textContent        = renderTemplate($('nFileMulti').value,
+    {...sampleStandalone,'Part-Index':'02'})+'.m4b';
+  $('prevFileSingleSeries').textContent = renderTemplate($('nFileSingleSeries').value, sampleSeries)+'.m4b';
+  $('prevFileMultiSeries').textContent  = renderTemplate($('nFileMultiSeries').value,
     {...sampleSeries,'Part-Index':'02'})+'.m4b';
 }
 
@@ -598,8 +630,10 @@ function getNaming(){
   return {
     folder_standalone: $('nFolderStandalone').value.trim(),
     folder_series:     $('nFolderSeries').value.trim(),
-    file_single:       $('nFileSingle').value.trim(),
-    file_multi:        $('nFileMulti').value.trim(),
+    file_single:        $('nFileSingle').value.trim(),
+    file_multi:         $('nFileMulti').value.trim(),
+    file_single_series: $('nFileSingleSeries').value.trim(),
+    file_multi_series:  $('nFileMultiSeries').value.trim(),
   };
 }
 

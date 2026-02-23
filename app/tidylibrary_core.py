@@ -43,16 +43,20 @@ class NamingConfig:
       {Year}          – Publish year (if available)
       {Part-Index}    – Zero-padded part number for multi-file books
 
-    folder_standalone : folder path for books not in a series
-    folder_series     : folder path for books in a series
-                        (relative to library root — slashes create subfolders)
-    file_single       : filename (no extension) when a book has ONE audio file
-    file_multi        : filename (no extension) for each part when multi-file
+    folder_standalone      : folder path for books not in a series
+    folder_series          : folder path for books in a series
+                             (relative to library root — slashes create subfolders)
+    file_single            : filename for standalone books with ONE audio file
+    file_multi             : filename for each part of standalone multi-file books
+    file_single_series     : filename for series books with ONE audio file
+    file_multi_series      : filename for each part of series multi-file books
     """
-    folder_standalone: str = "{Author}/{Title}"
-    folder_series:     str = "{Author}/{Series}/{Series-Index} {Title}"
-    file_single:       str = "{Author} - {Title}"
-    file_multi:        str = "{Author} - {Title} - Part {Part-Index}"
+    folder_standalone:  str = "{Author}/{Title}"
+    folder_series:      str = "{Author}/{Series}/{Series-Index} {Title}"
+    file_single:        str = "{Author} - {Title}"
+    file_multi:         str = "{Author} - {Title} - Part {Part-Index}"
+    file_single_series: str = "{Author} - {Series} {Series-Index} - {Title}"
+    file_multi_series:  str = "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}"
 
     # Preset library
     PRESETS: dict = field(default_factory=lambda: {
@@ -62,6 +66,8 @@ class NamingConfig:
             "folder_series":     "{Author}/{Series}/{Series-Index} {Title}",
             "file_single":       "{Author} - {Title}",
             "file_multi":        "{Author} - {Title} - Part {Part-Index}",
+            "file_single_series":  "{Author} - {Series} {Series-Index} - {Title}",
+            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
         },
         "series-first": {
             "label": "Series First",
@@ -69,6 +75,8 @@ class NamingConfig:
             "folder_series":     "{Series}/{Series-Index} {Title}",
             "file_single":       "{Author} - {Title}",
             "file_multi":        "{Author} - {Title} - Part {Part-Index}",
+            "file_single_series":  "{Author} - {Series} {Series-Index} - {Title}",
+            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
         },
         "plex": {
             "label": "Plex-friendly",
@@ -76,6 +84,8 @@ class NamingConfig:
             "folder_series":     "{Author}/{Series}/{Series-Index} - {Title}",
             "file_single":       "{Title}",
             "file_multi":        "{Title} - Part {Part-Index}",
+            "file_single_series":  "{Author} - {Series} {Series-Index} - {Title}",
+            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
         },
         "minimal": {
             "label": "Minimal",
@@ -83,6 +93,8 @@ class NamingConfig:
             "folder_series":     "{Author}/{Series}/{Series-Index} {Title}",
             "file_single":       "{Title}",
             "file_multi":        "{Title} - Part {Part-Index}",
+            "file_single_series":  "{Author} - {Series} {Series-Index} - {Title}",
+            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
         },
         "series-in-filename": {
             "label": "Series in Filename",
@@ -90,33 +102,43 @@ class NamingConfig:
             "folder_series":     "{Author}/{Series}/{Series-Index} {Title}",
             "file_single":       "{Author} - {Series} {Series-Index} - {Title}",
             "file_multi":        "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
+            "file_single_series":  "{Author} - {Series} {Series-Index} - {Title}",
+            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
         },
     }, init=False, repr=False, compare=False)
 
     def to_dict(self) -> dict:
         return {
-            "folder_standalone": self.folder_standalone,
-            "folder_series":     self.folder_series,
-            "file_single":       self.file_single,
-            "file_multi":        self.file_multi,
+            "folder_standalone":  self.folder_standalone,
+            "folder_series":      self.folder_series,
+            "file_single":        self.file_single,
+            "file_multi":         self.file_multi,
+            "file_single_series": self.file_single_series,
+            "file_multi_series":  self.file_multi_series,
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "NamingConfig":
+        def _d(key): return cls.__dataclass_fields__[key].default
         return cls(
-            folder_standalone = d.get("folder_standalone", cls.__dataclass_fields__["folder_standalone"].default),
-            folder_series     = d.get("folder_series",     cls.__dataclass_fields__["folder_series"].default),
-            file_single       = d.get("file_single",       cls.__dataclass_fields__["file_single"].default),
-            file_multi        = d.get("file_multi",        cls.__dataclass_fields__["file_multi"].default),
+            folder_standalone  = d.get("folder_standalone",  _d("folder_standalone")),
+            folder_series      = d.get("folder_series",      _d("folder_series")),
+            file_single        = d.get("file_single",        _d("file_single")),
+            file_multi         = d.get("file_multi",         _d("file_multi")),
+            file_single_series = d.get("file_single_series", _d("file_single_series")),
+            file_multi_series  = d.get("file_multi_series",  _d("file_multi_series")),
         )
 
     @classmethod
     def from_env(cls) -> "NamingConfig":
+        def _d(key): return cls.__dataclass_fields__[key].default
         return cls(
-            folder_standalone = os.environ.get("NAMING_FOLDER_STANDALONE", cls.__dataclass_fields__["folder_standalone"].default),
-            folder_series     = os.environ.get("NAMING_FOLDER_SERIES",     cls.__dataclass_fields__["folder_series"].default),
-            file_single       = os.environ.get("NAMING_FILE_SINGLE",       cls.__dataclass_fields__["file_single"].default),
-            file_multi        = os.environ.get("NAMING_FILE_MULTI",        cls.__dataclass_fields__["file_multi"].default),
+            folder_standalone  = os.environ.get("NAMING_FOLDER_STANDALONE",  _d("folder_standalone")),
+            folder_series      = os.environ.get("NAMING_FOLDER_SERIES",      _d("folder_series")),
+            file_single        = os.environ.get("NAMING_FILE_SINGLE",        _d("file_single")),
+            file_multi         = os.environ.get("NAMING_FILE_MULTI",         _d("file_multi")),
+            file_single_series = os.environ.get("NAMING_FILE_SINGLE_SERIES", _d("file_single_series")),
+            file_multi_series  = os.environ.get("NAMING_FILE_MULTI_SERIES",  _d("file_multi_series")),
         )
 
 
@@ -323,19 +345,24 @@ def build_move_plan(
     all_items: List[Path],
     tokens: Dict[str, str],
     naming: NamingConfig,
+    is_series: bool = False,
 ) -> List[Tuple[Path, Path]]:
     move_plan: List[Tuple[Path, Path]] = []
     audio_set = set(audio_files)
     num_audio = len(audio_files)
     pad_width = max(2, len(str(num_audio)))
 
+    # Pick the right filename template based on series membership and part count
+    tpl_single = naming.file_single_series if is_series else naming.file_single
+    tpl_multi  = naming.file_multi_series  if is_series else naming.file_multi
+
     for idx, old_f in enumerate(audio_files, 1):
         ext = old_f.suffix.lower()
         if num_audio == 1:
-            stem = render_template(naming.file_single, tokens)
+            stem = render_template(tpl_single, tokens)
         else:
             part_tokens = {**tokens, "Part-Index": str(idx).zfill(pad_width)}
-            stem = render_template(naming.file_multi, part_tokens)
+            stem = render_template(tpl_multi, part_tokens)
         move_plan.append((old_f, target_dir / f"{stem}{ext}"))
 
     for item in all_items:
@@ -446,7 +473,8 @@ def scan_library_abs(
             all_paths   = [remap(p) for p in item.all_files]
 
         move_plan = build_move_plan(
-            old_book_dir, target_dir, audio_paths, all_paths, tokens, naming
+            old_book_dir, target_dir, audio_paths, all_paths, tokens, naming,
+            is_series=bool(item.series_name),
         )
 
         needs_changes = (
