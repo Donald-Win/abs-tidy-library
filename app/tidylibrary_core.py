@@ -464,15 +464,34 @@ def scan_library_abs(
     # sequence "2" triggered inclusion, but after padding to "02" the path
     # matches what already exists on disk). Filter them out now.
     def still_needs_move(bm: BookMove) -> bool:
-        folder_diff = bm.old_dir.resolve() != bm.target_dir.resolve()
-        file_diff   = any(old_f.name != new_f.name for old_f, new_f in bm.move_plan)
-        return folder_diff or file_diff
+        # Paths match → nothing to do
+        if bm.old_dir.resolve() == bm.target_dir.resolve():
+            return any(old_f.name != new_f.name for old_f, new_f in bm.move_plan)
+        # Paths differ but old_dir is gone and target_dir already exists →
+        # ABS rescan hasn't updated book_path yet but the move already happened.
+        if not bm.old_dir.exists() and bm.target_dir.exists():
+            return False
+        # Old dir doesn't exist at all (stale ABS entry or first-time path) →
+        # Nothing we can do, skip to avoid errors.
+        if not bm.old_dir.exists():
+            return False
+        return True
 
     before = len(planned_moves)
-    planned_moves = [bm for bm in planned_moves if still_needs_move(bm)]
+    stale_abs_path = []
+    genuinely_needed = []
+    for bm in planned_moves:
+        if still_needs_move(bm):
+            genuinely_needed.append(bm)
+        else:
+            if not bm.old_dir.exists() and bm.target_dir.exists():
+                stale_abs_path.append(bm.title)
+    planned_moves = genuinely_needed
     filtered = before - len(planned_moves)
     if filtered:
         emit(f"  (Filtered {filtered} books already correctly named after sequence padding.)")
+    if stale_abs_path:
+        emit(f"  (Filtered {len(stale_abs_path)} books where move was done but ABS path is stale — rescan ABS to update: {', '.join(stale_abs_path[:5])}{'…' if len(stale_abs_path)>5 else ''})")
 
     emit(f"Planning complete. {len(planned_moves)} books need tidying.")
     return stats, planned_moves
@@ -496,6 +515,10 @@ def execute_book_move(
 
         for old_f, new_f in book.move_plan:
             if not old_f.is_file():
+                if not new_f.is_file():
+                    emit(f"  WARN: source file missing and not at target either: {old_f.name}")
+                    log_event(log_file, f"  WARN: missing {old_f}")
+                # else: file already at target (move already done) — skip silently
                 continue
             if old_f.resolve() == new_f.resolve():
                 continue
