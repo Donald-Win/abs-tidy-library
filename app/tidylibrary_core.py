@@ -256,11 +256,20 @@ def render_template(template: str, tokens: Dict[str, str]) -> str:
     result = template
     for key, value in tokens.items():
         result = result.replace(f"{{{key}}}", clean_filename(str(value)) if value else "")
-    # Clean up any double-spaces or trailing spaces per path segment
+
+    # Clean each path segment
     parts = result.split("/")
-    parts = [re.sub(r'\s+', ' ', p).strip() for p in parts]
-    parts = [p for p in parts if p]  # drop empty segments
-    return "/".join(parts)
+    cleaned = []
+    for part in parts:
+        # Collapse runs of whitespace
+        part = re.sub(r'\s+', ' ', part).strip()
+        # Remove orphaned separators left by empty tokens e.g. "Author -  - Title" → "Author - Title"
+        part = re.sub(r'(\s*-\s*){2,}', ' - ', part)
+        part = re.sub(r'^[\s\-]+|[\s\-]+$', '', part).strip()
+        if part:
+            cleaned.append(part)
+
+    return "/".join(cleaned)
 
 
 def make_tokens(
