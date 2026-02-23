@@ -145,6 +145,48 @@ def api_abs_libraries():
         return jsonify({"error": str(e)}), 500
 
 
+
+# ── Routes: cover art proxy ───────────────────────────────────────────────────
+
+@app.route("/api/abs/cover/<item_id>")
+def api_abs_cover(item_id: str):
+    """
+    Proxy cover art from ABS so the browser never needs the token.
+    Tries the item cover endpoint; falls back to a blank SVG placeholder.
+    Query params: server_url, token  (or falls back to ENV defaults).
+    """
+    import requests as req
+    server_url = request.args.get("server_url", ENV_SERVER_URL).strip().rstrip("/")
+    token      = request.args.get("token",      ENV_TOKEN).strip()
+
+    if not server_url or not token or not item_id:
+        return _cover_placeholder()
+
+    try:
+        url  = f"{server_url}/api/items/{item_id}/cover"
+        resp = req.get(url,
+                       headers={"Authorization": f"Bearer {token}"},
+                       timeout=8, stream=True)
+        if resp.status_code == 200:
+            ct = resp.headers.get("Content-Type", "image/jpeg")
+            return Response(resp.content, mimetype=ct,
+                            headers={"Cache-Control": "public, max-age=3600"})
+    except Exception:
+        pass
+    return _cover_placeholder()
+
+
+def _cover_placeholder():
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="110" viewBox="0 0 80 110">'
+        '<rect width="80" height="110" rx="4" fill="#1a1d27"/>'
+        '<text x="40" y="62" text-anchor="middle" font-size="36" fill="#2e3350">📚</text>'
+        '</svg>'
+    )
+    return Response(svg, mimetype="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
 # ── Routes: scan ──────────────────────────────────────────────────────────────
 
 @app.route("/api/abs/scan", methods=["POST"])

@@ -154,17 +154,29 @@ class BookMove:
                 return str(p.relative_to(root_path))
             except ValueError:
                 return str(p)
+
+        old_rel = rel(self.old_dir)
+        new_rel = rel(self.target_dir)
+        folder_changed = self.old_dir.resolve() != self.target_dir.resolve()
+
+        audio_exts = {".mp3", ".m4b", ".m4a", ".flac", ".ogg", ".opus", ".aac", ".wma"}
+        file_changes = [
+            {"from": f.name, "to": t.name}
+            for f, t in self.move_plan
+            if Path(f.name).suffix.lower() in audio_exts and f.name != t.name
+        ]
+
         return {
-            "title":      self.title,
-            "author":     self.author,
-            "series":     f"{self.series_name} #{self.series_sequence}" if self.series_name else "",
-            "old_dir":    rel(self.old_dir),
-            "target_dir": rel(self.target_dir),
-            "files": [
-                {"from": f.name, "to": t.name}
-                for f, t in self.move_plan
-                if f.name != t.name or f.parent != t.parent
-            ],
+            "item_id":        self.abs_item_id,
+            "title":          self.title,
+            "author":         self.author,
+            "series_name":    self.series_name,
+            "series_seq":     self.series_sequence,
+            "old_folder":     old_rel,
+            "new_folder":     new_rel,
+            "folder_changed": folder_changed,
+            "file_changes":   file_changes,
+            "files_renamed":  len(file_changes),
         }
 
 
