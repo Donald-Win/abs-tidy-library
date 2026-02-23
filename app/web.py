@@ -297,11 +297,12 @@ def api_apply():
             if not dry_run and server_url and token and library_id:
                 emit("Triggering Audiobookshelf library rescan…")
                 try:
-                    rescan_triggered = ABSClient(server_url, token).trigger_library_scan(library_id)
-                    emit("✓ ABS library rescan started." if rescan_triggered
-                         else "⚠ Could not trigger ABS rescan — do it manually.")
+                    ok, msg = ABSClient(server_url, token).trigger_library_scan(library_id)
+                    rescan_triggered = ok
+                    emit(f"✓ ABS library rescan started." if ok
+                         else f"⚠ Could not trigger ABS rescan: {msg} — do it manually in ABS Settings → Libraries → Scan.")
                 except Exception as e:
-                    emit(f"⚠ ABS rescan error: {e}")
+                    emit(f"⚠ ABS rescan error: {e} — do it manually in ABS Settings → Libraries → Scan.")
 
             finish_job(jid, {
                 "exec_stats": exec_stats,

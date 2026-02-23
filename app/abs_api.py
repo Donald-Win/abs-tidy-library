@@ -157,12 +157,17 @@ class ABSClient:
 
     # ── Rescan ─────────────────────────────────────────────────────────────────
 
-    def trigger_library_scan(self, library_id: str) -> bool:
+    def trigger_library_scan(self, library_id: str):
+        # ABS may return plain "OK" or JSON or 204 — handle all cases.
+        # Returns (success: bool, message: str).
+        url = f"{self.base_url}/api/libraries/{library_id}/scan"
         try:
-            self._post(f"/api/libraries/{library_id}/scan")
-            return True
-        except Exception:
-            return False
+            resp = self.session.post(url, timeout=self.timeout)
+            if resp.status_code in (200, 204):
+                return True, "Rescan started."
+            return False, f"ABS returned HTTP {resp.status_code}: {resp.text[:200]}"
+        except Exception as e:
+            return False, str(e)
 
     # ── Normalisation ──────────────────────────────────────────────────────────
 
