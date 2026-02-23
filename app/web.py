@@ -212,9 +212,30 @@ def api_abs_scan():
 
     def _run():
         try:
-            client    = ABSClient(server_url, token)
+            client = ABSClient(server_url, token)
+
+            # Fetch the ABS-side root path for this library so we can remap
+            # ABS book paths (e.g. /media/Audiobooks/...) into our container's
+            # mount point (e.g. /library/...).  They're the same files on disk
+            # accessed through different paths.
+            abs_library_root = ""
+            try:
+                libs = client.get_libraries()
+                for lib in libs:
+                    if lib.id == library_id:
+                        abs_library_root = lib.root_path
+                        break
+            except Exception:
+                pass
+            if abs_library_root:
+                emit(f"ABS library root: {abs_library_root}")
+                emit(f"Container root:   {library_path}")
+
             abs_items = client.get_library_items(library_id, emit)
-            stats, planned = scan_library_abs(abs_items, root_path, naming, emit)
+            stats, planned = scan_library_abs(
+                abs_items, root_path, naming, emit,
+                abs_library_root=abs_library_root,
+            )
 
             ck = f"abs:{server_url}:{library_id}"
             with cache_lock:

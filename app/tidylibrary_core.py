@@ -345,14 +345,20 @@ def scan_library_abs(
     root_path: Path,
     naming: NamingConfig,
     emit: Callable[[str], None] = _noop,
+    abs_library_root: str = "",
 ) -> Tuple[LibraryStats, List[BookMove]]:
     """
     Build move plans for all ABS items using API metadata and naming templates.
     No metadata.json files are read — all data comes from the ABS API.
+
+    abs_library_root: the path ABS uses internally (e.g. /media/Audiobooks).
+    root_path:        where those same files are mounted in this container.
+    Book paths from ABS are remapped so comparisons happen in container space.
     """
     stats: LibraryStats       = LibraryStats()
     planned_moves: List[BookMove] = []
     total = len(abs_items)
+    abs_root = Path(abs_library_root) if abs_library_root else None
 
     emit(f"Planning changes for {total} books using ABS API metadata…")
 
@@ -374,12 +380,12 @@ def scan_library_abs(
 
         # ── Build target directory via naming template ──────────────────────────
         tokens = make_tokens(
-            author        = item.author,
-            title         = item.title,
-            series_name   = item.series_name,
+            author          = item.author,
+            title           = item.title,
+            series_name     = item.series_name,
             series_sequence = item.series_sequence,
-            narrator      = item.narrator,
-            year          = item.year,
+            narrator        = item.narrator,
+            year            = item.year,
         )
 
         if item.series_name:
@@ -387,12 +393,37 @@ def scan_library_abs(
         else:
             folder_rel = render_template(naming.folder_standalone, tokens)
 
-        old_book_dir = Path(item.book_path)
-        target_dir   = root_path / Path(folder_rel)
+        # ── Remap book_path from ABS space into container space ────────────────
+        # ABS stores paths like /media/Audiobooks/Author/Book
+        # Our container mounts the same files at /library/Author/Book
+        # We strip the ABS root prefix and replace with our root_path so that
+        # all path comparisons happen in the same coordinate space.
+        abs_book_path = Path(item.book_path)
+        if abs_root:
+            try:
+                rel_from_abs = abs_book_path.relative_to(abs_root)
+                old_book_dir = root_path / rel_from_abs
+            except ValueError:
+                # book_path is not under abs_library_root — use as-is
+                old_book_dir = abs_book_path
+        else:
+            old_book_dir = abs_book_path
+
+        target_dir = root_path / Path(folder_rel)
+
+        # ── Remap audio/all file paths the same way ────────────────────────────
+        def remap(p_str: str) -> Path:
+            p = Path(p_str)
+            if abs_root:
+                try:
+                    return root_path / p.relative_to(abs_root)
+                except ValueError:
+                    pass
+            return p
 
         # ── Gather files ───────────────────────────────────────────────────────
-        audio_paths = [Path(p) for p in item.audio_files]
-        all_paths   = [Path(p) for p in item.all_files]
+        audio_paths = [remap(p) for p in item.audio_files]
+        all_paths   = [remap(p) for p in item.all_files]
 
         try:
             if old_book_dir.exists():

@@ -57,15 +57,15 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
 
 .changes-list{max-height:70vh;overflow-y:auto;display:flex;flex-direction:column;gap:.75rem;padding-right:.2rem}
 /* ── Change card ── */
-.change-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;align-items:stretch;transition:border-color .2s}
+.change-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:row;align-items:flex-start;transition:border-color .2s}
 .change-card:hover{border-color:var(--accent)}
-/* Cover: fixed width, stretches to full card height */
-.change-cover-wrap{width:90px;min-width:90px;flex-shrink:0;position:relative;background:var(--bg)}
-.change-cover{width:90px;height:100%;object-fit:cover;display:block;position:absolute;top:0;left:0;min-height:120px}
-.change-cover-placeholder{width:90px;min-height:120px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;background:var(--surface)}
-/* Body: fills remaining width, expands with content */
-.change-body{flex:1;padding:.9rem 1rem;min-width:0;display:flex;flex-direction:column;gap:.28rem}
-.change-title{font-weight:700;font-size:1rem;line-height:1.3;word-break:break-word}
+/* Cover: fixed size block — does NOT stretch, card height is driven by body */
+.change-cover-wrap{flex-shrink:0;width:90px;align-self:stretch}
+.change-cover{width:90px;height:100%;min-height:130px;object-fit:cover;display:block}
+.change-cover-placeholder{width:90px;min-height:130px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;background:var(--surface);height:100%}
+/* Body: flex column, expands freely */
+.change-body{flex:1;padding:.9rem 1rem;min-width:0;display:flex;flex-direction:column;gap:.35rem}
+.change-title{font-weight:700;font-size:1rem;line-height:1.35;word-break:break-word}
 .change-meta{font-size:.78rem;color:var(--muted)}
 .change-series-badge{display:inline-flex;align-items:center;gap:.3rem;background:rgba(108,99,255,.18);color:#a5b4fc;border-radius:4px;padding:.18rem .55rem;font-size:.74rem;font-weight:600;align-self:flex-start}
 /* Tags row */
