@@ -173,9 +173,9 @@ class ABSClient:
             media = raw.get("media", {})
             meta  = media.get("metadata", {})
 
-            title     = self._scalar(meta, "title")     or "Unknown Title"
-            author    = self._scalar(meta, "authorName") or "Unknown Author"
-            narrator  = self._scalar(meta, "narratorName") or ""
+            title     = self._scalar(meta, "title")                        or "Unknown Title"
+            author    = self._scalar(meta, "authorName",    first_only=True) or "Unknown Author"
+            narrator  = self._scalar(meta, "narratorName", first_only=True) or ""
             year      = str(meta.get("publishedYear") or meta.get("publishYear") or "").strip()
 
             series_name, series_seq = self._parse_series(meta)
@@ -207,14 +207,23 @@ class ABSClient:
         except Exception:
             return None
 
-    def _scalar(self, meta: dict, key: str) -> str:
+    def _scalar(self, meta: dict, key: str, first_only: bool = False) -> str:
+        """
+        Extract a string value from metadata.
+        first_only=True: if the value is a comma-separated list, take the first item.
+                         Use for author/narrator which ABS sometimes returns as
+                         "Author A, Author B" and we only want the primary.
+        first_only=False (default): return the full string as-is. Never split titles.
+        """
         v = meta.get(key)
         if not v:
             return ""
         if isinstance(v, list):
             v = v[0] if v else ""
         s = str(v).strip()
-        return s.split(",")[0].strip() if "," in s else s
+        if first_only and "," in s:
+            return s.split(",")[0].strip()
+        return s
 
     def _parse_series(self, meta: dict) -> Tuple[str, str]:
         # New format: series = [{"name": "...", "sequence": "1"}]
