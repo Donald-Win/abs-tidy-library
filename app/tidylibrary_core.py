@@ -421,6 +421,21 @@ def scan_library_abs(
             ))
 
     planned_moves = pad_series_numbers(planned_moves, naming, root_path)
+
+    # After padding, some books may no longer need changes (their pre-padding
+    # sequence "2" triggered inclusion, but after padding to "02" the path
+    # matches what already exists on disk). Filter them out now.
+    def still_needs_move(bm: BookMove) -> bool:
+        folder_diff = bm.old_dir.resolve() != bm.target_dir.resolve()
+        file_diff   = any(old_f.name != new_f.name for old_f, new_f in bm.move_plan)
+        return folder_diff or file_diff
+
+    before = len(planned_moves)
+    planned_moves = [bm for bm in planned_moves if still_needs_move(bm)]
+    filtered = before - len(planned_moves)
+    if filtered:
+        emit(f"  (Filtered {filtered} books already correctly named after sequence padding.)")
+
     emit(f"Planning complete. {len(planned_moves)} books need tidying.")
     return stats, planned_moves
 
