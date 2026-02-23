@@ -428,18 +428,22 @@ def scan_library_abs(
                     pass
             return p
 
-        # ── Gather files ───────────────────────────────────────────────────────
-        audio_paths = [remap(p) for p in item.audio_files]
-        all_paths   = [remap(p) for p in item.all_files]
+        # ── Gather files from disk (source of truth for what actually exists) ───
+        # ABS audio_files can be stale or missing entries; scan the real folder.
+        AUDIO_EXTS = {'.mp3', '.m4b', '.m4a', '.flac', '.ogg', '.opus', '.aac', '.wma'}
 
-        try:
-            if old_book_dir.exists():
-                known = {p.resolve() for p in all_paths}
-                for f in old_book_dir.iterdir():
-                    if f.is_file() and f.resolve() not in known:
-                        all_paths.append(f)
-        except PermissionError:
-            pass
+        if old_book_dir.exists():
+            try:
+                disk_files = sorted(old_book_dir.iterdir(), key=lambda f: natural_sort_key(f.name))
+                audio_paths = [f for f in disk_files if f.is_file() and f.suffix.lower() in AUDIO_EXTS]
+                all_paths   = [f for f in disk_files if f.is_file()]
+            except PermissionError:
+                audio_paths = [remap(p) for p in item.audio_files]
+                all_paths   = [remap(p) for p in item.all_files]
+        else:
+            # Folder doesn't exist yet on disk — fall back to ABS metadata
+            audio_paths = [remap(p) for p in item.audio_files]
+            all_paths   = [remap(p) for p in item.all_files]
 
         move_plan = build_move_plan(
             old_book_dir, target_dir, audio_paths, all_paths, tokens, naming
