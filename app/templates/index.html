@@ -127,6 +127,10 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
   padding:.55rem .85rem;font-size:.78rem;font-family:monospace;
   color:#a3e635;min-height:2.2rem;word-break:break-all;line-height:1.6
 }
+.inline-preview-row{display:flex;align-items:baseline;gap:.5rem;margin-top:.35rem}
+.inline-preview-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);white-space:nowrap;flex-shrink:0}
+.inline-preview{flex:1;min-height:0;padding:.3rem .6rem;font-size:.73rem}
+.naming-section-label{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:.2rem 0}
 
 /* ── Toast ─────────────────────────────────────────────────────────────────── */
 #toast{position:fixed;bottom:1.75rem;right:1.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.7rem 1.1rem;font-size:.85rem;opacity:0;transform:translateY(10px);transition:all .28s;z-index:999;max-width:340px;pointer-events:none}
@@ -229,13 +233,19 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
     <!-- Token reference -->
     <div class="hint" style="margin-bottom:.5rem">Click a token to insert it at the cursor:</div>
     <div class="token-bar" id="tokenBar">
-      <span class="token-chip" onclick="insertToken('{Author}')">     {Author}</span>
-      <span class="token-chip" onclick="insertToken('{Title}')">      {Title}</span>
-      <span class="token-chip" onclick="insertToken('{Series}')">     {Series}</span>
+      <span class="token-chip" onclick="insertToken('{Author}')">      {Author}</span>
+      <span class="token-chip" onclick="insertToken('{Title}')">       {Title}</span>
+      <span class="token-chip" onclick="insertToken('{Subtitle}')">    {Subtitle}</span>
+      <span class="token-chip" onclick="insertToken('{Series}')">      {Series}</span>
       <span class="token-chip" onclick="insertToken('{Series-Index}')">{Series-Index}</span>
-      <span class="token-chip" onclick="insertToken('{Narrator}')">   {Narrator}</span>
-      <span class="token-chip" onclick="insertToken('{Year}')">       {Year}</span>
+      <span class="token-chip" onclick="insertToken('{Narrator}')">    {Narrator}</span>
+      <span class="token-chip" onclick="insertToken('{Year}')">        {Year}</span>
       <span class="token-chip" onclick="insertToken('{Part-Index}')">{Part-Index}</span>
+      <span class="token-chip" onclick="insertToken('{ISBN}')">        {ISBN}</span>
+      <span class="token-chip" onclick="insertToken('{ASIN}')">        {ASIN}</span>
+      <span class="token-chip" onclick="insertToken('{Language}')">    {Language}</span>
+      <span class="token-chip" onclick="insertToken('{Publisher}')">   {Publisher}</span>
+      <span class="token-chip" onclick="insertToken('{Genre}')">       {Genre}</span>
     </div>
 
     <!-- Preset picker -->
@@ -249,77 +259,72 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
       </select>
     </div>
 
+    <!-- Each field has its inline preview directly below it -->
     <div class="naming-grid">
-      <div class="field naming-section-header" style="grid-column:1/-1">
-        <span style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">📁 Folder Structure</span>
-      </div>
+
+      <div class="naming-section-label" style="grid-column:1/-1">📁 Folder Structure</div>
+
       <div class="field">
-        <label>Standalone folder template</label>
+        <label>Standalone folder</label>
         <input type="text" id="nFolderStandalone" class="mono"
                value="{{ naming.folder_standalone }}" oninput="updatePreviews()"/>
+        <div class="inline-preview-row">
+          <span class="inline-preview-label">Preview</span>
+          <div class="preview-box inline-preview" id="prevStandalone"></div>
+        </div>
       </div>
       <div class="field">
-        <label>Series folder template</label>
+        <label>Series folder</label>
         <input type="text" id="nFolderSeries" class="mono"
                value="{{ naming.folder_series }}" oninput="updatePreviews()"/>
+        <div class="inline-preview-row">
+          <span class="inline-preview-label">Preview</span>
+          <div class="preview-box inline-preview" id="prevSeries"></div>
+        </div>
       </div>
-      <div class="field naming-section-header" style="grid-column:1/-1;margin-top:.4rem">
-        <span style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">🎵 Standalone File Names</span>
-      </div>
+
+      <div class="naming-section-label" style="grid-column:1/-1;margin-top:.6rem">🎵 Standalone File Names</div>
+
       <div class="field">
-        <label>Single-file audio filename</label>
+        <label>Single-file filename</label>
         <input type="text" id="nFileSingle" class="mono"
                value="{{ naming.file_single }}" oninput="updatePreviews()"/>
+        <div class="inline-preview-row">
+          <span class="inline-preview-label">Preview</span>
+          <div class="preview-box inline-preview" id="prevFileSingle"></div>
+        </div>
       </div>
       <div class="field">
-        <label>Multi-part audio filename</label>
+        <label>Multi-part filename</label>
         <input type="text" id="nFileMulti" class="mono"
                value="{{ naming.file_multi }}" oninput="updatePreviews()"/>
+        <div class="inline-preview-row">
+          <span class="inline-preview-label">Preview (part 2 of 12)</span>
+          <div class="preview-box inline-preview" id="prevFileMulti"></div>
+        </div>
       </div>
-      <div class="field naming-section-header" style="grid-column:1/-1;margin-top:.4rem">
-        <span style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">📚 Series File Names</span>
-      </div>
+
+      <div class="naming-section-label" style="grid-column:1/-1;margin-top:.6rem">📚 Series File Names</div>
+
       <div class="field">
-        <label>Series single-file audio filename</label>
+        <label>Series single-file filename</label>
         <input type="text" id="nFileSingleSeries" class="mono"
                value="{{ naming.file_single_series }}" oninput="updatePreviews()"/>
+        <div class="inline-preview-row">
+          <span class="inline-preview-label">Preview</span>
+          <div class="preview-box inline-preview" id="prevFileSingleSeries"></div>
+        </div>
       </div>
       <div class="field">
-        <label>Series multi-part audio filename</label>
+        <label>Series multi-part filename</label>
         <input type="text" id="nFileMultiSeries" class="mono"
                value="{{ naming.file_multi_series }}" oninput="updatePreviews()"/>
+        <div class="inline-preview-row">
+          <span class="inline-preview-label">Preview (part 2 of 12)</span>
+          <div class="preview-box inline-preview" id="prevFileMultiSeries"></div>
+        </div>
       </div>
-    </div>
 
-    <!-- Live preview -->
-    <div style="margin-top:1rem">
-      <div class="card-title" style="margin-bottom:.5rem">Preview</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
-        <div>
-          <div class="hint" style="margin-bottom:.25rem">Standalone folder</div>
-          <div class="preview-box" id="prevStandalone"></div>
-        </div>
-        <div>
-          <div class="hint" style="margin-bottom:.25rem">Series folder</div>
-          <div class="preview-box" id="prevSeries"></div>
-        </div>
-        <div>
-          <div class="hint" style="margin-bottom:.25rem">Standalone single file</div>
-          <div class="preview-box" id="prevFileSingle"></div>
-        </div>
-        <div>
-          <div class="hint" style="margin-bottom:.25rem">Standalone multi-part (2 of 12)</div>
-          <div class="preview-box" id="prevFileMulti"></div>
-        </div>
-        <div>
-          <div class="hint" style="margin-bottom:.25rem">Series single file</div>
-          <div class="preview-box" id="prevFileSingleSeries"></div>
-        </div>
-        <div>
-          <div class="hint" style="margin-bottom:.25rem">Series multi-part (2 of 12)</div>
-          <div class="preview-box" id="prevFileMultiSeries"></div>
-        </div>
-      </div>
     </div>
 
     <div class="btn-row">
@@ -608,12 +613,16 @@ function renderTemplate(tpl, tokens){
 
 function updatePreviews(){
   const sampleStandalone={
-    Author:'Brandon Sanderson', Title:'The Final Empire',
+    Author:'Brandon Sanderson', Title:'The Final Empire', Subtitle:'',
     Series:'', 'Series-Index':'', Narrator:'Michael Kramer', Year:'2006',
+    ISBN:'9780765311788', ASIN:'B002V0QVYO', Language:'English',
+    Publisher:'Tor Books', Genre:'Fantasy',
   };
   const sampleSeries={
-    Author:'Brandon Sanderson', Title:'The Final Empire',
+    Author:'Brandon Sanderson', Title:'The Final Empire', Subtitle:'',
     Series:'Mistborn', 'Series-Index':'01', Narrator:'Michael Kramer', Year:'2006',
+    ISBN:'9780765311788', ASIN:'B002V0QVYO', Language:'English',
+    Publisher:'Tor Books', Genre:'Fantasy',
   };
 
   $('prevStandalone').textContent = renderTemplate($('nFolderStandalone').value, sampleStandalone)+'/';

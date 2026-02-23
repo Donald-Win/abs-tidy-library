@@ -33,11 +33,17 @@ class ABSBookItem:
     """A single audiobook item, normalised from the ABS API response."""
     item_id: str
     title: str
+    subtitle: str           # subtitle field from ABS
     author: str
     narrator: str
     series_name: str
     series_sequence: str    # raw sequence e.g. "1", "2.5" — padded later
     year: str               # publish year as string, e.g. "2001" or ""
+    isbn: str               # ISBN-13 or ISBN-10
+    asin: str               # Amazon ASIN
+    language: str           # e.g. "en", "English"
+    publisher: str          # publisher name
+    genre: str              # first genre tag
     duration: float
     size: int
     book_path: str          # filesystem path to book directory
@@ -179,9 +185,16 @@ class ABSClient:
             meta  = media.get("metadata", {})
 
             title     = self._scalar(meta, "title")                        or "Unknown Title"
+            subtitle  = self._scalar(meta, "subtitle")                     or ""
             author    = self._scalar(meta, "authorName",    first_only=True) or "Unknown Author"
             narrator  = self._scalar(meta, "narratorName", first_only=True) or ""
             year      = str(meta.get("publishedYear") or meta.get("publishYear") or "").strip()
+            isbn      = self._scalar(meta, "isbn")      or self._scalar(meta, "isbn13") or ""
+            asin      = self._scalar(meta, "asin")      or ""
+            language  = self._scalar(meta, "language")  or ""
+            publisher = self._scalar(meta, "publisher") or ""
+            genres    = meta.get("genres") or []
+            genre     = str(genres[0]).strip() if genres else ""
 
             series_name, series_seq = self._parse_series(meta)
 
@@ -203,9 +216,11 @@ class ABSClient:
 
             return ABSBookItem(
                 item_id=raw.get("id", ""),
-                title=title, author=author, narrator=narrator,
+                title=title, subtitle=subtitle, author=author, narrator=narrator,
                 series_name=series_name, series_sequence=series_seq,
-                year=year, duration=duration, size=size,
+                year=year, isbn=isbn, asin=asin, language=language,
+                publisher=publisher, genre=genre,
+                duration=duration, size=size,
                 book_path=book_path,
                 audio_files=audio_files, all_files=all_files,
             )

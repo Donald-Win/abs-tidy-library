@@ -37,10 +37,16 @@ class NamingConfig:
     Available tokens:
       {Author}        – Author name
       {Title}         – Book title
+      {Subtitle}      – Subtitle (if set in ABS)
       {Series}        – Series name
       {Series-Index}  – Zero-padded series sequence  e.g. 01, 02, 12
       {Narrator}      – Narrator name
       {Year}          – Publish year (if available)
+      {ISBN}          – ISBN-13 or ISBN-10 (if set in ABS)
+      {ASIN}          – Amazon ASIN (if set in ABS)
+      {Language}      – Language (if set in ABS)
+      {Publisher}     – Publisher name (if set in ABS)
+      {Genre}         – First genre tag (if set in ABS)
       {Part-Index}    – Zero-padded part number for multi-file books
 
     folder_standalone      : folder path for books not in a series
@@ -264,14 +270,26 @@ def make_tokens(
     series_sequence: str,
     narrator: str = "",
     year: str = "",
+    subtitle: str = "",
+    isbn: str = "",
+    asin: str = "",
+    language: str = "",
+    publisher: str = "",
+    genre: str = "",
 ) -> Dict[str, str]:
     return {
         "Author":       author,
         "Title":        title,
+        "Subtitle":     subtitle,
         "Series":       series_name,
         "Series-Index": series_sequence,
         "Narrator":     narrator,
         "Year":         year,
+        "ISBN":         isbn,
+        "ASIN":         asin,
+        "Language":     language,
+        "Publisher":    publisher,
+        "Genre":        genre,
     }
 
 
@@ -420,6 +438,12 @@ def scan_library_abs(
             series_sequence = item.series_sequence,
             narrator        = item.narrator,
             year            = item.year,
+            subtitle        = item.subtitle,
+            isbn            = item.isbn,
+            asin            = item.asin,
+            language        = item.language,
+            publisher       = item.publisher,
+            genre           = item.genre,
         )
 
         if item.series_name:
