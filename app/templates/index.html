@@ -664,6 +664,8 @@ function renderStats(s){
     </div>`).join('');
 }
 
+function coverErr(img){ img.style.display='none'; }
+
 function folderDiff(oldPath, newPath){
   var oldParts = (oldPath || '').split('/');
   var newParts = (newPath || '').split('/');
@@ -699,7 +701,7 @@ function renderChanges(changes, total){
       }
 
       var coverHtml = coverSrc
-        ? '<img class="change-cover" src="' + coverSrc + '" alt="" loading="lazy" onerror="this.style.display='none'">'
+        ? '<img class="change-cover" src="' + coverSrc + '" alt="" loading="lazy" onerror="coverErr(this)">'
         : '<div class="change-cover" style="display:flex;align-items:center;justify-content:center;font-size:2rem">📚</div>';
 
       var seriesLabel = '';
