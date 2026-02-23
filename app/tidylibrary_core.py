@@ -84,6 +84,13 @@ class NamingConfig:
             "file_single":       "{Title}",
             "file_multi":        "{Title} - Part {Part-Index}",
         },
+        "series-in-filename": {
+            "label": "Series in Filename",
+            "folder_standalone": "{Author}/{Title}",
+            "folder_series":     "{Author}/{Series}/{Series-Index} {Title}",
+            "file_single":       "{Author} - {Series} {Series-Index} - {Title}",
+            "file_multi":        "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
+        },
     }, init=False, repr=False, compare=False)
 
     def to_dict(self) -> dict:

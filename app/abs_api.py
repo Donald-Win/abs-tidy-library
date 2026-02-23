@@ -226,20 +226,33 @@ class ABSClient:
         return s
 
     def _parse_series(self, meta: dict) -> Tuple[str, str]:
-        # New format: series = [{"name": "...", "sequence": "1"}]
+        import re as _re
+        # Modern: series is a list of {"name":..., "sequence":...}
+        # A book can have multiple series (e.g. "Stormlight Archive" + "The Cosmere").
+        # Pick the first entry that has a non-empty sequence number; fall back to first.
         series_arr = meta.get("series")
         if series_arr and isinstance(series_arr, list):
-            first = series_arr[0]
-            if isinstance(first, dict):
-                return first.get("name", "").strip(), str(first.get("sequence") or "").strip()
+            dicts = [s for s in series_arr if isinstance(s, dict)]
+            if dicts:
+                primary = next(
+                    (s for s in dicts if str(s.get("sequence") or "").strip()),
+                    dicts[0],
+                )
+                name = primary.get("name", "").strip()
+                seq  = str(primary.get("sequence") or "").strip()
+                # Keep only leading number e.g. "3" from "3, The Cosmere"
+                m = _re.match(r'^(\d+(?:\.\d+)?)', seq)
+                seq = m.group(1) if m else seq.split(",")[0].strip()
+                return name, seq
 
-        # Legacy: seriesName = "Name #1"
+        # Legacy: seriesName = "Name #1" or "Name #3, Secondary"
         series_str = meta.get("seriesName", "")
         if series_str and "#" in series_str:
             parts = series_str.split("#", 1)
-            return parts[0].strip(), parts[1].strip()
+            seq   = parts[1].strip().split(",")[0].strip()  # drop secondary series
+            return parts[0].strip(), seq
         if series_str:
-            return series_str.strip(), ""
+            return series_str.split(",")[0].strip(), ""
 
         return "", ""
 
