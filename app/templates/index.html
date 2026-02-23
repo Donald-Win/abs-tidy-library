@@ -665,95 +665,100 @@ function renderStats(s){
 }
 
 function folderDiff(oldPath, newPath){
-  // Split into segments, show per-segment diff
-  const oldParts = oldPath.replace(/\\/g,'/').split('/');
-  const newParts = newPath.replace(/\\/g,'/').split('/');
-  const maxLen   = Math.max(oldParts.length, newParts.length);
-  let rows = '';
-  for(let i=0; i<maxLen; i++){
-    const o = oldParts[i] ?? '';
-    const n = newParts[i] ?? '';
+  var oldParts = (oldPath || '').split('/');
+  var newParts = (newPath || '').split('/');
+  var maxLen   = Math.max(oldParts.length, newParts.length);
+  var rows = '';
+  for(var i=0; i<maxLen; i++){
+    var o = oldParts[i] || '';
+    var n = newParts[i] || '';
     if(o === n){
-      rows += `<div class="diff-same">${esc(o)}/</div>`;
+      rows += '<div class="diff-same">' + esc(o) + '/</div>';
     } else {
-      if(o) rows += `<div class="diff-old">${esc(o)}/</div>`;
-      if(n) rows += `<div class="diff-new">${esc(n)}/</div>`;
+      if(o) rows += '<div class="diff-old">' + esc(o) + '/</div>';
+      if(n) rows += '<div class="diff-new">' + esc(n) + '/</div>';
     }
   }
   return rows;
 }
 
 function renderChanges(changes, total){
-  const serverUrl = absCtx.server_url || '';
-  const token     = absCtx.token || '';
-  const preview   = changes.slice(0, 50);
+  try {
+    var serverUrl = absCtx.server_url || '';
+    var token     = absCtx.token || '';
+    var preview   = changes.slice(0, 50);
+    var html      = '';
 
-  const html = preview.map(c => {
-    const coverSrc = c.item_id
-      ? `/api/abs/cover/${c.item_id}?server_url=${encodeURIComponent(serverUrl)}&token=${encodeURIComponent(token)}`
-      : '';
+    for(var ci=0; ci<preview.length; ci++){
+      var c = preview[ci];
+      var coverSrc = '';
+      if(c.item_id){
+        coverSrc = '/api/abs/cover/' + c.item_id
+          + '?server_url=' + encodeURIComponent(serverUrl)
+          + '&token=' + encodeURIComponent(token);
+      }
 
-    const folderChanged = c.folder_changed;
-    const fileChanges   = c.file_changes || [];
-    const seriesLabel   = c.series_name
-      ? `<span class="change-series-badge">📚 ${esc(c.series_name)} #${esc(c.series_seq)}</span>`
-      : '';
+      var coverHtml = coverSrc
+        ? '<img class="change-cover" src="' + coverSrc + '" alt="" loading="lazy" onerror="this.style.display='none'">'
+        : '<div class="change-cover" style="display:flex;align-items:center;justify-content:center;font-size:2rem">📚</div>';
 
-    // Tags
-    let tags = '';
-    if(folderChanged)        tags += `<span class="tag tag-folder">📁 Folder rename</span>`;
-    if(fileChanges.length)   tags += `<span class="tag tag-files">🎵 ${fileChanges.length} file${fileChanges.length>1?'s':''} renamed</span>`;
+      var seriesLabel = '';
+      if(c.series_name){
+        seriesLabel = '<span class="change-series-badge">📚 '
+          + esc(c.series_name) + ' #' + esc(c.series_seq || '') + '</span>';
+      }
 
-    // Folder diff block
-    let folderBlock = '';
-    if(folderChanged){
-      folderBlock = `
-        <div class="diff-section">
-          <div class="diff-label">Folder</div>
-          <div class="diff-row">${folderDiff(c.old_folder, c.new_folder)}</div>
-        </div>`;
+      var tags = '';
+      if(c.folder_changed)             tags += '<span class="tag tag-folder">📁 Folder rename</span>';
+      var fc = c.file_changes || [];
+      if(fc.length > 0)                tags += '<span class="tag tag-files">🎵 ' + fc.length + ' file' + (fc.length>1?'s':'') + ' renamed</span>';
+
+      var folderBlock = '';
+      if(c.folder_changed){
+        folderBlock = '<div class="diff-section">'
+          + '<div class="diff-label">Folder</div>'
+          + '<div class="diff-row">' + folderDiff(c.old_folder, c.new_folder) + '</div>'
+          + '</div>';
+      }
+
+      var filesBlock = '';
+      if(fc.length > 0){
+        var fileRows = '';
+        var shown = fc.slice(0, 3);
+        var rest  = fc.length - 3;
+        for(var fi=0; fi<shown.length; fi++){
+          fileRows += '<div class="diff-file-row">'
+            + '<span class="diff-fname-old">' + esc(shown[fi].from) + '</span>'
+            + '<span class="diff-arrow-sm">→</span>'
+            + '<span class="diff-fname-new">' + esc(shown[fi].to) + '</span>'
+            + '</div>';
+        }
+        if(rest > 0) fileRows += '<div style="font-size:.65rem;color:var(--muted);padding:.15rem 0">+' + rest + ' more file' + (rest>1?'s':'') + '…</div>';
+        filesBlock = '<div class="diff-section">'
+          + '<div class="diff-label">Files</div>'
+          + '<div class="diff-row diff-files">' + fileRows + '</div>'
+          + '</div>';
+      }
+
+      html += '<div class="change-card">'
+        + '<div class="change-cover-wrap">' + coverHtml + '</div>'
+        + '<div class="change-body">'
+        + '<div class="change-title">' + esc(c.title) + '</div>'
+        + '<div class="change-meta">'  + esc(c.author) + '</div>'
+        + seriesLabel
+        + '<div class="change-badges">' + tags + '</div>'
+        + folderBlock
+        + filesBlock
+        + '</div>'
+        + '</div>';
     }
 
-    // File renames block (show up to 3, collapse rest)
-    let filesBlock = '';
-    if(fileChanges.length){
-      const shown = fileChanges.slice(0, 3);
-      const rest  = fileChanges.length - 3;
-      const rows  = shown.map(f => `
-        <div class="diff-file-row">
-          <span class="diff-fname-old">${esc(f.from)}</span>
-          <span class="diff-arrow-sm">→</span>
-          <span class="diff-fname-new">${esc(f.to)}</span>
-        </div>`).join('');
-      const more = rest > 0 ? `<div style="font-size:.65rem;color:var(--muted);padding:.15rem 0">+${rest} more file${rest>1?'s':''}…</div>` : '';
-      filesBlock = `
-        <div class="diff-section">
-          <div class="diff-label">Files</div>
-          <div class="diff-row diff-files">${rows}${more}</div>
-        </div>`;
-    }
-
-    return `
-      <div class="change-card">
-        <div class="change-cover-wrap">
-          ${coverSrc
-            ? `<img class="change-cover" src="${coverSrc}" alt="" loading="lazy" onerror="this.style.display='none'">`
-            : `<div class="change-cover" style="display:flex;align-items:center;justify-content:center;font-size:2rem">📚</div>`
-          }
-        </div>
-        <div class="change-body">
-          <div class="change-title">${esc(c.title)}</div>
-          <div class="change-meta">${esc(c.author)}</div>
-          ${seriesLabel}
-          <div class="change-badges">${tags}</div>
-          ${folderBlock}
-          ${filesBlock}
-        </div>
-      </div>`;
-  }).join('');
-
-  const more = total > 50 ? `<div class="more-badge">+${total-50} more books…</div>` : '';
-  $('changesList').innerHTML = html + more;
+    var more = total > 50 ? '<div class="more-badge">+' + (total-50) + ' more books…</div>' : '';
+    $('changesList').innerHTML = html + more;
+  } catch(e) {
+    $('changesList').innerHTML = '<div style="color:#ef4444;padding:1rem">Error rendering changes: ' + e.message + '</div>';
+    console.error('renderChanges error:', e);
+  }
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
