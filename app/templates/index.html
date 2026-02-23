@@ -634,6 +634,10 @@ function onScanDone(jd){
   if(jd.status==='error'){ toast('Scan failed — see terminal.',false); return; }
 
   const res=jd.result;
+  window._lastChanges = res.changes;
+  if(res.changes && res.changes.length > 0){
+    console.log('DEBUG first change object:', JSON.stringify(res.changes[0], null, 2));
+  }
   cacheKey=res.cache_key||'';
   if(res.server_url) absCtx.server_url=res.server_url;
   if(res.library_id) absCtx.library_id=res.library_id;
@@ -756,12 +760,22 @@ function renderChanges(changes, total){
     }
 
     var more = total > 50 ? '<div class="more-badge">+' + (total-50) + ' more books…</div>' : '';
-    $('changesList').innerHTML = html + more;
+
+    // Debug: show raw first object if cards are empty
+    var debugHtml = '';
+    if(changes.length > 0 && html.indexOf('change-title') === -1){
+      debugHtml = '<div style="background:#1a1d27;border:1px solid #ef4444;border-radius:6px;padding:1rem;font-family:monospace;font-size:.72rem;color:#f87171;white-space:pre-wrap;margin-bottom:.5rem">'
+        + 'DEBUG - first change fields:\n' + JSON.stringify(changes[0], null, 2) + '</div>';
+    }
+    $('changesList').innerHTML = debugHtml + html + more;
   } catch(e) {
-    $('changesList').innerHTML = '<div style="color:#ef4444;padding:1rem">Error rendering changes: ' + e.message + '</div>';
+    $('changesList').innerHTML = '<div style="color:#ef4444;padding:1rem">Error: ' + e.message + '</div>';
     console.error('renderChanges error:', e);
   }
 }
+
+// Debug: expose last raw changes for inspection
+window._lastChanges = null;
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 async function startApply()  { await runJob('/api/apply',{dry_run:false},'⚙ Applying changes…',   '✅ Apply complete',   '❌ Apply failed'); }
