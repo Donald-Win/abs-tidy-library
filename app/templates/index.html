@@ -761,11 +761,15 @@ function renderChanges(changes, total){
 
     var more = total > 50 ? '<div class="more-badge">+' + (total-50) + ' more books…</div>' : '';
 
-    // Debug: show raw first object if cards are empty
+    // DEBUG: unconditional raw dump of first change object
     var debugHtml = '';
-    if(changes.length > 0 && html.indexOf('change-title') === -1){
-      debugHtml = '<div style="background:#1a1d27;border:1px solid #ef4444;border-radius:6px;padding:1rem;font-family:monospace;font-size:.72rem;color:#f87171;white-space:pre-wrap;margin-bottom:.5rem">'
-        + 'DEBUG - first change fields:\n' + JSON.stringify(changes[0], null, 2) + '</div>';
+    if(changes.length > 0){
+      var keys = Object.keys(changes[0]);
+      var raw  = JSON.stringify(changes[0], null, 2);
+      debugHtml = '<pre style="background:#0a0c12;border:2px solid #ef4444;border-radius:6px;'
+        + 'padding:1rem;font-size:.68rem;color:#fca5a5;white-space:pre-wrap;word-break:break-all;'
+        + 'margin-bottom:.75rem;max-height:280px;overflow:auto">'
+        + '<b>DEBUG first change - keys: ' + keys.join(', ') + '</b>\n\n' + raw + '</pre>';
     }
     $('changesList').innerHTML = debugHtml + html + more;
   } catch(e) {
