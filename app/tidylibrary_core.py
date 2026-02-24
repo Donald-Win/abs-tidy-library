@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+import json
 import shutil
 import datetime
 from pathlib import Path
@@ -25,6 +26,32 @@ SECONDS_PER_HOUR   = 3600
 SECONDS_PER_MINUTE = 60
 
 _noop: Callable[[str], None] = lambda msg: None
+
+# Config persistence path — mounted volume so it survives container restarts
+CONFIG_PATH = Path(os.environ.get("CONFIG_PATH", "/config/naming.json"))
+
+
+# ── Config persistence ─────────────────────────────────────────────────────────
+
+def load_naming_config() -> "NamingConfig":
+    """Load naming config from disk, falling back to env vars then defaults."""
+    if CONFIG_PATH.exists():
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                return NamingConfig.from_dict(json.load(f))
+        except Exception:
+            pass
+    return NamingConfig.from_env()
+
+
+def save_naming_config(naming: "NamingConfig") -> None:
+    """Persist naming config to disk."""
+    try:
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(naming.to_dict(), f, indent=2)
+    except Exception:
+        pass
 
 
 # ── Naming configuration ───────────────────────────────────────────────────────
@@ -303,67 +330,6 @@ def make_tokens(
     }
 
 
-# ── Series zero-padding ────────────────────────────────────────────────────────
-
-def pad_sequence(seq: str, width: int) -> str:
-    if not seq:
-        return seq
-    m = re.match(r'^(\d+)(.*)', seq.strip())
-    if not m:
-        return seq
-    return m.group(1).zfill(width) + m.group(2)
-
-
-def _seq_int_part(seq: str) -> int:
-    m = re.match(r'^(\d+)', seq.strip()) if seq else None
-    return int(m.group(1)) if m else 0
-
-
-def pad_series_numbers(
-    planned_moves: List[BookMove],
-    naming: NamingConfig,
-    root_path: Path,
-) -> List[BookMove]:
-    """
-    Ensure consistent zero-padding for all books in the same series,
-    then rebuild target_dir and move_plan using the naming template.
-    """
-    groups: Dict[Tuple[str, str], List[int]] = {}
-    for i, bm in enumerate(planned_moves):
-        if not bm.series_name:
-            continue
-        groups.setdefault((bm.author, bm.series_name), []).append(i)
-
-    for (author, series_name), indices in groups.items():
-        seqs    = [planned_moves[i].series_sequence for i in indices]
-        max_int = max((_seq_int_part(s) for s in seqs), default=0)
-        width   = max(2, len(str(max_int)) if max_int > 0 else 2)
-
-        for i in indices:
-            bm      = planned_moves[i]
-            old_seq = bm.series_sequence
-            new_seq = pad_sequence(old_seq, width)
-
-            if new_seq == old_seq:
-                continue
-
-            # Rebuild target_dir with padded sequence via naming template
-            tokens = make_tokens(bm.author, bm.title, bm.series_name, new_seq)
-            folder_rel = render_template(naming.folder_series, tokens)
-            new_target = root_path / Path(folder_rel)
-            new_plan   = [(old_f, new_target / dest.name)
-                          for old_f, dest in bm.move_plan]
-
-            planned_moves[i] = BookMove(
-                title=bm.title, author=bm.author,
-                series_name=bm.series_name, series_sequence=new_seq,
-                old_dir=bm.old_dir, target_dir=new_target,
-                move_plan=new_plan, abs_item_id=bm.abs_item_id,
-            )
-
-    return planned_moves
-
-
 # ── Move plan builder ──────────────────────────────────────────────────────────
 
 def build_move_plan(
@@ -405,32 +371,20 @@ def build_move_plan(
 # ── ABS-mode scan ──────────────────────────────────────────────────────────────
 
 def scan_library_abs(
-    abs_items,
+    items,
     root_path: Path,
     naming: NamingConfig,
     emit: Callable[[str], None] = _noop,
     abs_library_root: str = "",
 ) -> Tuple[LibraryStats, List[BookMove]]:
-    """
-    Build move plans for all ABS items using API metadata and naming templates.
-    No metadata.json files are read — all data comes from the ABS API.
 
-    abs_library_root: the path ABS uses internally (e.g. /media/Audiobooks).
-    root_path:        where those same files are mounted in this container.
-    Book paths from ABS are remapped so comparisons happen in container space.
-    """
-    stats: LibraryStats       = LibraryStats()
+    stats         = LibraryStats()
     planned_moves: List[BookMove] = []
-    total = len(abs_items)
-    abs_root = Path(abs_library_root) if abs_library_root else None
+    abs_root      = Path(abs_library_root) if abs_library_root else None
 
-    emit(f"Planning changes for {total} books using ABS API metadata…")
+    emit(f"Scanning {len(items)} books…")
 
-    for idx, item in enumerate(abs_items, 1):
-        if idx % 10 == 0 or idx == total:
-            emit(f"Processing: {idx}/{total}…")
-
-        # ── Stats ──────────────────────────────────────────────────────────────
+    for item in items:
         stats.books += 1
         stats.authors.add(item.author)
         if item.narrator:
@@ -439,10 +393,9 @@ def scan_library_abs(
             stats.series.add(item.series_name)
         else:
             stats.standalone_count += 1
-        stats.total_duration += item.duration
         stats.total_size     += item.size
+        stats.total_duration += item.duration
 
-        # ── Build target directory via naming template ──────────────────────────
         tokens = make_tokens(
             author          = item.author,
             title           = item.title,
@@ -463,25 +416,18 @@ def scan_library_abs(
         else:
             folder_rel = render_template(naming.folder_standalone, tokens)
 
-        # ── Remap book_path from ABS space into container space ────────────────
-        # ABS stores paths like /media/Audiobooks/Author/Book
-        # Our container mounts the same files at /library/Author/Book
-        # We strip the ABS root prefix and replace with our root_path so that
-        # all path comparisons happen in the same coordinate space.
         abs_book_path = Path(item.book_path)
         if abs_root:
             try:
                 rel_from_abs = abs_book_path.relative_to(abs_root)
                 old_book_dir = root_path / rel_from_abs
             except ValueError:
-                # book_path is not under abs_library_root — use as-is
                 old_book_dir = abs_book_path
         else:
             old_book_dir = abs_book_path
 
         target_dir = root_path / Path(folder_rel)
 
-        # ── Remap audio/all file paths the same way ────────────────────────────
         def remap(p_str: str) -> Path:
             p = Path(p_str)
             if abs_root:
@@ -491,8 +437,6 @@ def scan_library_abs(
                     pass
             return p
 
-        # ── Gather files from disk (source of truth for what actually exists) ───
-        # ABS audio_files can be stale or missing entries; scan the real folder.
         AUDIO_EXTS = {'.mp3', '.m4b', '.m4a', '.flac', '.ogg', '.opus', '.aac', '.wma'}
 
         if old_book_dir.exists():
@@ -504,7 +448,6 @@ def scan_library_abs(
                 audio_paths = [remap(p) for p in item.audio_files]
                 all_paths   = [remap(p) for p in item.all_files]
         else:
-            # Folder doesn't exist yet on disk — fall back to ABS metadata
             audio_paths = [remap(p) for p in item.audio_files]
             all_paths   = [remap(p) for p in item.all_files]
 
@@ -528,19 +471,11 @@ def scan_library_abs(
 
     planned_moves = pad_series_numbers(planned_moves, naming, root_path)
 
-    # After padding, some books may no longer need changes (their pre-padding
-    # sequence "2" triggered inclusion, but after padding to "02" the path
-    # matches what already exists on disk). Filter them out now.
     def still_needs_move(bm: BookMove) -> bool:
-        # Paths match → nothing to do
         if bm.old_dir.resolve() == bm.target_dir.resolve():
             return any(old_f.name != new_f.name for old_f, new_f in bm.move_plan)
-        # Paths differ but old_dir is gone and target_dir already exists →
-        # ABS rescan hasn't updated book_path yet but the move already happened.
         if not bm.old_dir.exists() and bm.target_dir.exists():
             return False
-        # Old dir doesn't exist at all (stale ABS entry or first-time path) →
-        # Nothing we can do, skip to avoid errors.
         if not bm.old_dir.exists():
             return False
         return True
@@ -561,8 +496,35 @@ def scan_library_abs(
     if stale_abs_path:
         emit(f"  (Filtered {len(stale_abs_path)} books where move was done but ABS path is stale — rescan ABS to update: {', '.join(stale_abs_path[:5])}{'…' if len(stale_abs_path)>5 else ''})")
 
+    # ── Collision detection ────────────────────────────────────────────────────
+    # Check for duplicate target directories and duplicate target file paths
+    collisions = []
+    target_dirs: Dict[str, List[str]] = {}
+    target_files: Dict[str, List[str]] = {}
+
+    for bm in planned_moves:
+        td = str(bm.target_dir.resolve())
+        target_dirs.setdefault(td, []).append(bm.title)
+        for _, new_f in bm.move_plan:
+            tf = str(new_f.resolve())
+            target_files.setdefault(tf, []).append(bm.title)
+
+    for td, titles in target_dirs.items():
+        if len(titles) > 1:
+            collisions.append(f"Folder collision: {titles} → same folder")
+            emit(f"  ⚠ COLLISION: {len(titles)} books share target folder: {', '.join(titles)}")
+
+    for tf, titles in target_files.items():
+        if len(titles) > 1:
+            fname = Path(tf).name
+            collisions.append(f"File collision: {titles} → {fname}")
+            emit(f"  ⚠ COLLISION: {len(titles)} books share target file: {fname}")
+
+    if collisions:
+        emit(f"  ⚠ {len(collisions)} collision(s) detected — review before applying!")
+
     emit(f"Planning complete. {len(planned_moves)} books need tidying.")
-    return stats, planned_moves
+    return stats, planned_moves, collisions
 
 
 # ── Execution ──────────────────────────────────────────────────────────────────
@@ -570,11 +532,18 @@ def scan_library_abs(
 def execute_book_move(
     book: BookMove,
     log_file: Path,
-    collisions: Set[str],
+    global_collisions: Set[str],
     dry_run: bool,
     emit: Callable[[str], None] = _noop,
-) -> bool:
+) -> Tuple[bool, List[Dict]]:
+    """
+    Execute a single book move. Returns (success, rollback_entries).
+    rollback_entries is a list of {from, to} dicts (actual moves made) for undo.
+    On partial failure, automatically reverses any files already moved.
+    """
     prefix = "[DRY RUN] " if dry_run else ""
+    rollback_entries: List[Dict] = []
+
     try:
         if not dry_run:
             book.target_dir.mkdir(parents=True, exist_ok=True)
@@ -586,13 +555,12 @@ def execute_book_move(
                 if not new_f.is_file():
                     emit(f"  WARN: source file missing and not at target either: {old_f.name}")
                     log_event(log_file, f"  WARN: missing {old_f}")
-                # else: file already at target (move already done) — skip silently
                 continue
             if old_f.resolve() == new_f.resolve():
                 continue
             if new_f.exists():
                 log_event(log_file, f"  {prefix}CONFLICT: {new_f.name}")
-                collisions.add(new_f.name)
+                global_collisions.add(new_f.name)
                 emit(f"  CONFLICT: {new_f.name} already at target")
                 continue
             if dry_run:
@@ -601,6 +569,7 @@ def execute_book_move(
             else:
                 shutil.move(str(old_f), str(new_f))
                 log_event(log_file, f"  MOVED: {old_f.name} → {new_f.name}")
+                rollback_entries.append({"from": str(new_f), "to": str(old_f)})
 
         if not dry_run and book.old_dir.exists():
             try:
@@ -610,11 +579,21 @@ def execute_book_move(
             except (PermissionError, OSError):
                 pass
 
-        return True
+        return True, rollback_entries
+
     except Exception as e:
+        # ── Partial failure recovery: reverse files we already moved ──────────
         log_event(log_file, f"!!! ERROR '{book.title}': {e}")
         emit(f"ERROR '{book.title}': {e}")
-        return False
+        if rollback_entries:
+            emit(f"  Reversing {len(rollback_entries)} already-moved file(s)…")
+            for entry in reversed(rollback_entries):
+                try:
+                    shutil.move(entry["from"], entry["to"])
+                    emit(f"  Reversed: {Path(entry['from']).name}")
+                except Exception as re_err:
+                    emit(f"  Could not reverse {Path(entry['from']).name}: {re_err}")
+        return False, []
 
 
 def apply_changes(
@@ -623,9 +602,21 @@ def apply_changes(
     log_file: Path,
     dry_run: bool = False,
     emit: Callable[[str], None] = _noop,
-) -> Dict[str, int]:
+    selected_ids: Optional[List[str]] = None,
+) -> Tuple[Dict[str, int], List[Dict]]:
+    """
+    Apply planned moves. Returns (exec_stats, move_log).
+    move_log is a list of {title, from, to} entries suitable for rollback.
+    If selected_ids is provided, only those item IDs are applied.
+    """
+    # Filter to selected books if a subset was requested
+    if selected_ids is not None:
+        id_set = set(selected_ids)
+        planned_moves = [bm for bm in planned_moves if bm.abs_item_id in id_set]
+
     collisions: Set[str] = set()
     exec_stats = {"applied": 0, "skipped": 0, "errors": 0}
+    move_log:  List[Dict] = []   # for rollback
     total  = len(planned_moves)
     prefix = "[DRY RUN] " if dry_run else ""
 
@@ -634,8 +625,17 @@ def apply_changes(
 
     for i, book in enumerate(planned_moves, 1):
         emit(f"{prefix}[{i}/{total}] {book.title}")
-        if execute_book_move(book, log_file, collisions, dry_run, emit):
+        ok, entries = execute_book_move(book, log_file, collisions, dry_run, emit)
+        if ok:
             exec_stats["applied"] += 1
+            if entries:
+                move_log.append({
+                    "title":  book.title,
+                    "author": book.author,
+                    "moves":  entries,
+                    "old_dir": str(book.old_dir),
+                    "new_dir": str(book.target_dir),
+                })
         else:
             exec_stats["errors"] += 1
 
@@ -643,7 +643,120 @@ def apply_changes(
     if collisions:
         emit(f"Collisions ({len(collisions)}): " + ", ".join(sorted(collisions)))
     emit(f"{prefix}Done. Applied: {exec_stats['applied']}, Errors: {exec_stats['errors']}, Collisions: {len(collisions)}")
-    return exec_stats
+    return exec_stats, move_log
+
+
+def rollback_moves(
+    move_log: List[Dict],
+    log_file: Path,
+    emit: Callable[[str], None] = _noop,
+) -> Dict[str, int]:
+    """Reverse a move_log produced by apply_changes."""
+    stats = {"reversed": 0, "errors": 0}
+    total = sum(len(entry["moves"]) for entry in move_log)
+    emit(f"Rolling back {len(move_log)} book(s) ({total} file(s))…")
+    log_event(log_file, f"--- ROLLBACK START: {len(move_log)} books ---")
+
+    for entry in reversed(move_log):
+        emit(f"  Reversing: {entry['title']}")
+        # Re-create original dir if needed
+        try:
+            old_dir = Path(entry["old_dir"])
+            old_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+        for mv in reversed(entry["moves"]):
+            src, dst = Path(mv["from"]), Path(mv["to"])
+            try:
+                if src.exists():
+                    shutil.move(str(src), str(dst))
+                    log_event(log_file, f"  ROLLED BACK: {src.name} → {dst.name}")
+                    stats["reversed"] += 1
+                else:
+                    emit(f"  WARN: rollback source missing: {src.name}")
+            except Exception as e:
+                emit(f"  ERROR rolling back {src.name}: {e}")
+                stats["errors"] += 1
+
+        # Clean up the (now-empty) new dir
+        try:
+            new_dir = Path(entry["new_dir"])
+            if new_dir.exists() and not any(new_dir.iterdir()):
+                shutil.rmtree(new_dir)
+        except Exception:
+            pass
+
+    log_event(log_file, f"--- ROLLBACK END: reversed={stats['reversed']} errors={stats['errors']} ---")
+    emit(f"Rollback done. Reversed: {stats['reversed']}, Errors: {stats['errors']}")
+    return stats
+
+
+# ── Padding ────────────────────────────────────────────────────────────────────
+
+def pad_series_numbers(
+    planned_moves: List[BookMove],
+    naming: NamingConfig,
+    root_path: Path,
+) -> List[BookMove]:
+    """
+    Ensure series sequence numbers are zero-padded consistently within each series.
+    e.g. if a series has books 1-12, pad all to 2 digits: 01, 02 … 12.
+    """
+    from collections import defaultdict
+
+    # Group by series name
+    series_books: Dict[str, List[BookMove]] = defaultdict(list)
+    for bm in planned_moves:
+        if bm.series_name:
+            series_books[bm.series_name].append(bm)
+
+    for series_name, books in series_books.items():
+        # Find max sequence number to determine pad width
+        seqs = []
+        for bm in books:
+            m = re.match(r'^(\d+)', bm.series_sequence)
+            if m:
+                seqs.append(int(m.group(1)))
+        if not seqs:
+            continue
+        pad_width = max(2, len(str(max(seqs))))
+
+        for bm in books:
+            m = re.match(r'^(\d+(?:\.\d+)?)', bm.series_sequence)
+            if not m:
+                continue
+            raw_seq = m.group(1)
+            int_part, _, dec_part = raw_seq.partition('.')
+            padded = int_part.zfill(pad_width) + (f'.{dec_part}' if dec_part else '')
+            if padded == bm.series_sequence:
+                continue
+            bm.series_sequence = padded
+            # Re-render target_dir with padded sequence
+            tokens = make_tokens(
+                author=bm.author, title=bm.title,
+                series_name=bm.series_name, series_sequence=padded,
+            )
+            folder_tpl = naming.folder_series if bm.series_name else naming.folder_standalone
+            bm.target_dir = root_path / render_template(folder_tpl, tokens)
+            # Re-render file names in move_plan
+            new_plan = []
+            for old_f, _ in bm.move_plan:
+                is_audio = old_f.suffix.lower() in AUDIO_EXTENSIONS
+                if is_audio:
+                    num_audio = sum(1 for f, _ in bm.move_plan if f.suffix.lower() in AUDIO_EXTENSIONS)
+                    pw = max(2, len(str(num_audio)))
+                    idx = sum(1 for f, _ in new_plan if f.suffix.lower() in AUDIO_EXTENSIONS) + 1
+                    is_series = bool(bm.series_name)
+                    tpl = (naming.file_multi_series if is_series else naming.file_multi) if num_audio > 1 else (naming.file_single_series if is_series else naming.file_single)
+                    pt = {**tokens, "Part-Index": str(idx).zfill(pw), "Part-Total": str(num_audio).zfill(pw)}
+                    stem = render_template(tpl, pt)
+                    new_plan.append((old_f, bm.target_dir / f"{stem}{old_f.suffix.lower()}"))
+                else:
+                    new_plan.append((old_f, bm.target_dir / old_f.name))
+            bm.move_plan = new_plan
+
+    return planned_moves
 
 
 # ── Empty directory cleanup ────────────────────────────────────────────────────

@@ -4,24 +4,51 @@ services:
     container_name: abs-tidy-library
     restart: unless-stopped
     ports:
-      - "5050:8080"
+      - "5050:8080"           # Change 5050 to any free port on your host
     volumes:
-      - /path/to/your/audiobooks:/library   # ← change this to your audiobook path
-
+      - /path/to/audiobooks:/library    # ← Required: your audiobook library
+      - /path/to/config:/config         # ← Recommended: persists naming settings
     environment:
-      # ── Audiobookshelf connection (pre-fills the UI, no need to re-enter) ──
-      ABS_SERVER_URL: "http://192.168.1.100:13378"   # ← your ABS server URL
-      ABS_TOKEN:      "your-api-key-here"             # ← API Key from ABS Settings → API Keys
-      ABS_LIBRARY_ID: ""                              # ← optional: auto-select a library
-                                                      #   find it in ABS Settings → Libraries
 
-      # ── Library filesystem path inside this container ─────────────────────
+      # ── Audiobookshelf connection ────────────────────────────────────────────
+      # These pre-fill the UI on load — no need to type them every time.
+      ABS_SERVER_URL: "http://192.168.1.100:13378"   # Your ABS server address
+      ABS_TOKEN:      "your-api-key-here"             # ABS → Settings → API Keys
+      ABS_LIBRARY_ID: ""                              # Optional — auto-selects library
+                                                      # Find it: ABS → Settings → Libraries
+
+      # ── Library path inside this container ───────────────────────────────────
+      # Must match the right side of your audiobooks volume mount above.
       LIBRARY_PATH: "/library"
 
-      # ── Naming convention (optional — configure in the UI instead) ─────────
-      # Tokens: {Author} {Title} {Series} {Series-Index} {Narrator} {Year} {Part-Index}
+      # ── Config persistence ────────────────────────────────────────────────────
+      # Naming templates are saved here between container restarts.
+      # Must match the right side of your config volume mount above.
+      CONFIG_PATH: "/config/naming.json"
+
+      # ── Naming templates (optional) ───────────────────────────────────────────
+      # Configure these in the UI instead — they save automatically to CONFIG_PATH.
+      # These env vars are only used as a fallback if no saved config exists.
       #
-      # NAMING_FOLDER_STANDALONE: "{Author}/{Title}"
-      # NAMING_FOLDER_SERIES:     "{Author}/{Series}/{Series-Index} {Title}"
-      # NAMING_FILE_SINGLE:       "{Author} - {Title}"
-      # NAMING_FILE_MULTI:        "{Author} - {Title} - Part {Part-Index}"
+      # Available tokens:
+      #   {Author}        Author name
+      #   {Title}         Book title
+      #   {Series}        Series name
+      #   {Series-Index}  Zero-padded position in series  e.g. 01, 02, 12
+      #   {Narrator}      Narrator name
+      #   {Year}          Publish year
+      #   {Subtitle}      Subtitle (if set in ABS)
+      #   {Publisher}     Publisher name
+      #   {Genre}         First genre tag
+      #   {Language}      Language
+      #   {ISBN}          ISBN-13 or ISBN-10
+      #   {ASIN}          Amazon ASIN
+      #   {Part-Index}    Part number for multi-file books  e.g. 01, 02
+      #   {Part-Total}    Total parts for multi-file books  e.g. 12
+      #
+      # NAMING_FOLDER_STANDALONE:  "{Author}/{Title}"
+      # NAMING_FOLDER_SERIES:      "{Author}/{Series}/{Series-Index} {Title}"
+      # NAMING_FILE_SINGLE:        "{Author} - {Title}"
+      # NAMING_FILE_MULTI:         "{Author} - {Title} (Part {Part-Index} of {Part-Total})"
+      # NAMING_FILE_SINGLE_SERIES: "{Author} - {Series} {Series-Index} - {Title}"
+      # NAMING_FILE_MULTI_SERIES:  "{Author} - {Series} {Series-Index} - {Title} (Part {Part-Index} of {Part-Total})"

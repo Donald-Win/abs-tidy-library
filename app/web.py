@@ -1,26 +1,27 @@
 """
 ABS Tidy Library – Web Application
 Credentials and naming config can be pre-loaded from environment variables.
+Config is persisted to /config/naming.json between container restarts.
 """
 
 from __future__ import annotations
 
 import os
 import uuid
+import json
 import threading
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, Response, stream_with_context
+from flask import Flask, render_template, request, jsonify, Response
 
 from tidylibrary_core import (
-    scan_library_abs, apply_changes, clean_empty_dirs,
-    NamingConfig, log_event,
+    scan_library_abs, apply_changes, rollback_moves, clean_empty_dirs,
+    NamingConfig, load_naming_config, save_naming_config, log_event,
 )
 from abs_api import ABSClient
 
 app = Flask(__name__)
 
 # ── Environment-variable defaults ─────────────────────────────────────────────
-# These are read once at startup so the UI can pre-fill them.
 ENV_SERVER_URL   = os.environ.get("ABS_SERVER_URL",   "").strip().rstrip("/")
 ENV_TOKEN        = os.environ.get("ABS_TOKEN",        "").strip()
 ENV_LIBRARY_ID   = os.environ.get("ABS_LIBRARY_ID",   "").strip()
@@ -31,6 +32,10 @@ jobs:      dict = {}
 jobs_lock  = threading.Lock()
 cache:     dict = {}
 cache_lock = threading.Lock()
+
+# Last move log for rollback (keyed by library_path)
+move_logs:      dict = {}
+move_logs_lock  = threading.Lock()
 
 
 # ── Job helpers ────────────────────────────────────────────────────────────────
@@ -63,7 +68,7 @@ def finish_job(jid: str, result: dict, error: str = "") -> None:
 
 @app.route("/")
 def index():
-    naming = NamingConfig.from_env()
+    naming = load_naming_config()
     return render_template(
         "index.html",
         env_server_url   = ENV_SERVER_URL,
@@ -75,11 +80,27 @@ def index():
     )
 
 
+# ── Routes: config persistence ────────────────────────────────────────────────
+
+@app.route("/api/config/naming", methods=["GET"])
+def api_config_get():
+    naming = load_naming_config()
+    return jsonify(naming.to_dict())
+
+
+@app.route("/api/config/naming", methods=["POST"])
+def api_config_save():
+    data = request.get_json(force=True)
+    naming = NamingConfig.from_dict(data)
+    save_naming_config(naming)
+    return jsonify({"ok": True})
+
+
 # ── Routes: env defaults ──────────────────────────────────────────────────────
 
 @app.route("/api/env-defaults")
 def api_env_defaults():
-    naming = NamingConfig.from_env()
+    naming = load_naming_config()
     return jsonify({
         "server_url":   ENV_SERVER_URL,
         "token":        ENV_TOKEN,
@@ -145,16 +166,10 @@ def api_abs_libraries():
         return jsonify({"error": str(e)}), 500
 
 
-
 # ── Routes: cover art proxy ───────────────────────────────────────────────────
 
 @app.route("/api/abs/cover/<item_id>")
 def api_abs_cover(item_id: str):
-    """
-    Proxy cover art from ABS so the browser never needs the token.
-    Tries the item cover endpoint; falls back to a blank SVG placeholder.
-    Query params: server_url, token  (or falls back to ENV defaults).
-    """
     import requests as req
     server_url = request.args.get("server_url", ENV_SERVER_URL).strip().rstrip("/")
     token      = request.args.get("token",      ENV_TOKEN).strip()
@@ -205,7 +220,10 @@ def api_abs_scan():
     if not root_path.exists() or not root_path.is_dir():
         return jsonify({"error": f"Filesystem path not accessible: {library_path}"}), 400
 
-    naming = NamingConfig.from_dict(naming_dict) if naming_dict else NamingConfig.from_env()
+    naming = NamingConfig.from_dict(naming_dict) if naming_dict else load_naming_config()
+
+    # Auto-save naming config whenever a scan runs
+    save_naming_config(naming)
 
     jid  = new_job()
     emit = emit_to(jid)
@@ -214,10 +232,6 @@ def api_abs_scan():
         try:
             client = ABSClient(server_url, token)
 
-            # Fetch the ABS-side root path for this library so we can remap
-            # ABS book paths (e.g. /media/Audiobooks/...) into our container's
-            # mount point (e.g. /library/...).  They're the same files on disk
-            # accessed through different paths.
             abs_library_root = ""
             try:
                 libs = client.get_libraries()
@@ -232,7 +246,7 @@ def api_abs_scan():
                 emit(f"Container root:   {library_path}")
 
             abs_items = client.get_library_items(library_id, emit)
-            stats, planned = scan_library_abs(
+            stats, planned, collisions = scan_library_abs(
                 abs_items, root_path, naming, emit,
                 abs_library_root=abs_library_root,
             )
@@ -246,6 +260,7 @@ def api_abs_scan():
                 "stats":         stats.to_dict(),
                 "changes_count": len(planned),
                 "changes":       [bm.to_dict(root_path) for bm in planned],
+                "collisions":    collisions,
                 "server_url":    server_url,
                 "token":         token,
                 "library_id":    library_id,
@@ -269,6 +284,7 @@ def api_apply():
     server_url   = data.get("server_url",   "").strip()
     token        = data.get("token",        "").strip()
     library_id   = data.get("library_id",   "").strip()
+    selected_ids = data.get("selected_ids", None)  # None = apply all
 
     if not cache_key or not library_path:
         return jsonify({"error": "cache_key and library_path are required"}), 400
@@ -289,7 +305,23 @@ def api_apply():
 
     def _run():
         try:
-            exec_stats = apply_changes(planned, root_path, log_file, dry_run, emit)
+            exec_stats, move_log = apply_changes(
+                planned, root_path, log_file, dry_run, emit,
+                selected_ids=selected_ids,
+            )
+
+            # Persist move log for rollback (real runs only)
+            if not dry_run and move_log:
+                with move_logs_lock:
+                    move_logs[library_path] = move_log
+                # Also save to disk so rollback survives a page reload
+                try:
+                    rollback_file = root_path / ".tidy_rollback.json"
+                    with open(rollback_file, "w", encoding="utf-8") as f:
+                        json.dump(move_log, f, indent=2)
+                except Exception:
+                    pass
+
             with cache_lock:
                 cache.pop(cache_key, None)
 
@@ -305,15 +337,92 @@ def api_apply():
                     emit(f"⚠ ABS rescan error: {e} — do it manually in ABS Settings → Libraries → Scan.")
 
             finish_job(jid, {
-                "exec_stats": exec_stats,
-                "dry_run": dry_run,
+                "exec_stats":       exec_stats,
+                "dry_run":          dry_run,
                 "rescan_triggered": rescan_triggered,
+                "has_rollback":     bool(move_log and not dry_run),
             })
         except Exception as e:
             finish_job(jid, {}, str(e))
 
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({"job_id": jid})
+
+
+# ── Routes: rollback ──────────────────────────────────────────────────────────
+
+@app.route("/api/rollback", methods=["POST"])
+def api_rollback():
+    data         = request.get_json(force=True)
+    library_path = data.get("library_path", "").strip()
+    if not library_path:
+        return jsonify({"error": "library_path required"}), 400
+
+    root_path = Path(library_path)
+    log_file  = root_path / "tidy_library_log.txt"
+
+    # Try in-memory first, then disk
+    move_log = None
+    with move_logs_lock:
+        move_log = move_logs.get(library_path)
+
+    if not move_log:
+        rollback_file = root_path / ".tidy_rollback.json"
+        if rollback_file.exists():
+            try:
+                with open(rollback_file, "r", encoding="utf-8") as f:
+                    move_log = json.load(f)
+            except Exception:
+                pass
+
+    if not move_log:
+        return jsonify({"error": "No rollback data found. Run Apply first."}), 400
+
+    jid  = new_job()
+    emit = emit_to(jid)
+
+    def _run():
+        try:
+            stats = rollback_moves(move_log, log_file, emit)
+            # Clear rollback log after successful use
+            with move_logs_lock:
+                move_logs.pop(library_path, None)
+            try:
+                (root_path / ".tidy_rollback.json").unlink(missing_ok=True)
+            except Exception:
+                pass
+            finish_job(jid, {"rollback_stats": stats})
+        except Exception as e:
+            finish_job(jid, {}, str(e))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"job_id": jid})
+
+
+@app.route("/api/rollback/status", methods=["POST"])
+def api_rollback_status():
+    """Check if rollback data is available for a library."""
+    data         = request.get_json(force=True)
+    library_path = data.get("library_path", "").strip()
+    if not library_path:
+        return jsonify({"available": False})
+
+    with move_logs_lock:
+        if library_path in move_logs:
+            n = sum(len(e["moves"]) for e in move_logs[library_path])
+            return jsonify({"available": True, "books": len(move_logs[library_path]), "files": n})
+
+    rollback_file = Path(library_path) / ".tidy_rollback.json"
+    if rollback_file.exists():
+        try:
+            with open(rollback_file, "r", encoding="utf-8") as f:
+                log = json.load(f)
+            n = sum(len(e["moves"]) for e in log)
+            return jsonify({"available": True, "books": len(log), "files": n})
+        except Exception:
+            pass
+
+    return jsonify({"available": False})
 
 
 # ── Routes: clean empty dirs ──────────────────────────────────────────────────

@@ -65,8 +65,11 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
 
 .changes-list{max-height:70vh;overflow-y:auto;display:flex;flex-direction:column;gap:.75rem;padding-right:.2rem}
 /* ── Change card ── */
-.change-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:row;align-items:flex-start}
+.change-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:row;align-items:flex-start;position:relative;transition:border-color .2s}
 .change-card:hover{border-color:var(--accent)}
+.card-select-wrap{position:absolute;top:.55rem;right:.6rem;z-index:2;cursor:pointer}
+.card-select-wrap input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+.change-card:has(.card-chk:checked){border-color:var(--accent);background:rgba(108,99,255,.08)}
 /* Cover: 90px wide, auto height from aspect-ratio, rounded left corners only */
 .change-cover-wrap{flex-shrink:0;width:90px;border-radius:10px 0 0 10px;overflow:hidden;align-self:stretch;background:var(--surface);display:flex}
 .change-cover{width:90px;min-height:130px;aspect-ratio:2/3;object-fit:cover;display:block;flex-shrink:0}
@@ -409,14 +412,57 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
     <div class="stats-grid" id="statsGrid"></div>
   </div>
 
+  <!-- ── Collision warnings ─────────────────────────────────────────────────── -->
+  <div class="card section" id="collisionsSection" style="border-color:#f59e0b">
+    <div class="card-title" style="color:#f59e0b">⚠ Naming Collisions Detected</div>
+    <div id="collisionsList" style="font-size:.82rem;color:var(--text);line-height:1.8"></div>
+    <div class="hint" style="margin-top:.5rem">Two or more books resolve to the same path. Fix your naming templates or ABS metadata before applying.</div>
+  </div>
+
   <!-- ── Proposed changes ────────────────────────────────────────────────────── -->
   <div class="card section" id="changesSection">
-    <div class="card-title">🔀 Proposed Changes</div>
+    <div class="card-title">
+      🔀 Proposed Changes
+      <span id="changeCountBadge" style="margin-left:auto;font-size:.78rem;font-weight:400;color:var(--muted)"></span>
+    </div>
+
+    <!-- Filter + select bar -->
+    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap">
+      <input type="text" id="changesFilter" placeholder="🔍 Filter by title or author…"
+             oninput="filterChanges()"
+             style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.45rem .75rem;color:var(--text);font-size:.84rem;outline:none"/>
+      <label style="display:flex;align-items:center;gap:.35rem;font-size:.82rem;cursor:pointer;white-space:nowrap">
+        <input type="checkbox" id="selectAllChk" onchange="toggleSelectAll(this.checked)"> Select all
+      </label>
+    </div>
+
     <div class="changes-list" id="changesList"></div>
-    <div class="btn-row">
+
+    <div class="btn-row" style="margin-top:.9rem;flex-wrap:wrap">
       <button class="btn btn-warn"    onclick="startDryRun()">👁 Dry Run</button>
-      <button class="btn btn-success" onclick="startApply()">✅ Apply All Changes</button>
+      <button class="btn btn-success" onclick="startApply(false)">✅ Apply All</button>
+      <button class="btn btn-primary" id="btnApplySelected" onclick="startApply(true)" style="display:none">✅ Apply Selected (<span id="selectedCount">0</span>)</button>
       <button class="btn btn-ghost"   onclick="startCleanEmpty(false)">🗑 Clean Empty Dirs</button>
+    </div>
+  </div>
+
+  <!-- ── Rollback ────────────────────────────────────────────────────────────── -->
+  <div class="card section" id="rollbackSection" style="display:none;border-color:#6c63ff">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+      <div>
+        <div class="card-title" style="margin-bottom:.2rem">↩ Rollback Available</div>
+        <div class="hint" id="rollbackHint"></div>
+      </div>
+      <button class="btn btn-ghost" onclick="startRollback()" style="border-color:#6c63ff;color:#a5b4fc">↩ Undo Last Apply</button>
+    </div>
+  </div>
+
+  <!-- ── Rescan prompt ────────────────────────────────────────────────────────── -->
+  <div class="card section" id="rescanPrompt" style="display:none;border-color:#f59e0b;padding:.85rem 1.2rem">
+    <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+      <span style="font-size:.84rem">⚠ Naming convention changed since last scan — results may be outdated.</span>
+      <button class="btn btn-warn btn-sm" onclick="startScan()">Re-scan Now</button>
+      <button class="btn btn-ghost btn-sm" onclick="hide('rescanPrompt')">Dismiss</button>
     </div>
   </div>
 
@@ -523,7 +569,15 @@ function poll(jobId, onDone){
 
 // ── Settings drawer ───────────────────────────────────────────────────────────
 function openSettings(){ $('settingsDrawer').classList.add('open'); $('settingsOverlay').classList.add('open'); }
-function closeSettings(){ $('settingsDrawer').classList.remove('open'); $('settingsOverlay').classList.remove('open'); }
+function closeSettings(){
+  $('settingsDrawer').classList.remove('open');
+  $('settingsOverlay').classList.remove('open');
+  // Persist naming config whenever settings drawer is closed
+  fetch('/api/config/naming',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(getNaming()),
+  }).catch(()=>{});
+}
 
 // ── Card collapse helpers ─────────────────────────────────────────────────────
 function collapseConn(label){
@@ -758,6 +812,22 @@ function getNaming(){
   };
 }
 
+// ── Naming dirty tracking ─────────────────────────────────────────────────────
+let lastScannedNaming = null;
+function namingHash(n){ return JSON.stringify(n); }
+function markNamingDirty(){
+  if(lastScannedNaming && namingHash(getNaming())!==namingHash(lastScannedNaming) && cacheKey){
+    show('rescanPrompt');
+  } else {
+    hide('rescanPrompt');
+  }
+}
+// Watch all naming inputs for changes
+['nFolderStandalone','nFolderSeries','nFileSingle','nFileMulti','nFileSingleSeries','nFileMultiSeries'].forEach(id=>{
+  const el=$(id);
+  if(el) el.addEventListener('input', markNamingDirty);
+});
+
 // ── Scan ───────────────────────────────────────────────────────────────────────
 async function startScan(){
   const libPath=$('libPath').value.trim();
@@ -766,9 +836,10 @@ async function startScan(){
 
   absCtx.library_path=libPath;
   currentPath=libPath;
+  hide('rescanPrompt');
 
   busy('btnScan','scanSpinner',true);
-  ['statsSection','changesSection','tidySection','logSection'].forEach(hide);
+  ['statsSection','changesSection','collisionsSection','tidySection','logSection'].forEach(hide);
   show('termSection'); clearTerm();
   setTermTitle('⚙ Fetching metadata from ABS API…');
 
@@ -801,12 +872,25 @@ function onScanDone(jd){
   cacheKey=res.cache_key||'';
   if(res.server_url) absCtx.server_url=res.server_url;
   if(res.library_id) absCtx.library_id=res.library_id;
+  lastScannedNaming = getNaming();
 
   renderStats(res.stats);
   show('statsSection'); show('logSection');
 
+  // Collision warnings
+  const cols = res.collisions || [];
+  if(cols.length){
+    $('collisionsList').innerHTML = cols.map(c=>`<div>⚠ ${esc(c)}</div>`).join('');
+    show('collisionsSection');
+  } else {
+    hide('collisionsSection');
+  }
+
   if(res.changes_count===0){ hide('changesSection'); show('tidySection'); }
   else{ renderChanges(res.changes,res.changes_count); show('changesSection'); }
+
+  // Check rollback availability
+  checkRollback();
 
   setTermTitle('✅ Scan complete');
   toast(`Scan done — ${res.changes_count} books need tidying.`);
@@ -848,11 +932,27 @@ function folderDiff(oldPath, newPath){
   return rows;
 }
 
+// Stored changes for filter/select
+let allChanges = [];
+
 function renderChanges(changes, total){
+  allChanges = changes;
+  updateChangeCountBadge(total);
+  renderFilteredChanges();
+}
+
+function renderFilteredChanges(){
+  const q = ($('changesFilter').value||'').toLowerCase().trim();
+  const filtered = q
+    ? allChanges.filter(c=>(c.title+' '+c.author).toLowerCase().includes(q))
+    : allChanges;
+
+  updateChangeCountBadge(allChanges.length, filtered.length);
+
   try {
     var serverUrl = absCtx.server_url || '';
     var token     = absCtx.token || '';
-    var preview   = changes.slice(0, 50);
+    var preview   = filtered.slice(0, 50);
     var html      = '';
 
     for(var ci=0; ci<preview.length; ci++){
@@ -875,9 +975,9 @@ function renderChanges(changes, total){
       }
 
       var tags = '';
-      if(c.folder_changed)             tags += '<span class="tag tag-folder">📁 Folder rename</span>';
+      if(c.folder_changed)  tags += '<span class="tag tag-folder">📁 Folder rename</span>';
       var fc = c.file_changes || [];
-      if(fc.length > 0)                tags += '<span class="tag tag-files">🎵 ' + fc.length + ' file' + (fc.length>1?'s':'') + ' renamed</span>';
+      if(fc.length > 0)     tags += '<span class="tag tag-files">🎵 ' + fc.length + ' file' + (fc.length>1?'s':'') + ' renamed</span>';
 
       var folderBlock = '';
       if(c.folder_changed){
@@ -905,7 +1005,11 @@ function renderChanges(changes, total){
           + '</div>';
       }
 
-      html += '<div class="change-card">'
+      var itemId = c.item_id || '';
+      html += '<div class="change-card" data-id="' + esc(itemId) + '" data-search="' + esc((c.title+' '+c.author).toLowerCase()) + '">'
+        + '<label class="card-select-wrap" title="Select for partial apply">'
+        + '<input type="checkbox" class="card-chk" data-id="' + esc(itemId) + '" onchange="onCardCheck()">'
+        + '</label>'
         + '<div class="change-cover-wrap">' + coverHtml + '</div>'
         + '<div class="change-body">'
         + '<div class="change-title">' + esc(c.title) + '</div>'
@@ -918,23 +1022,86 @@ function renderChanges(changes, total){
         + '</div>';
     }
 
-    var more = total > 50 ? '<div class="more-badge">+' + (total-50) + ' more books…</div>' : '';
-
+    var more = filtered.length > 50 ? '<div class="more-badge">+' + (filtered.length-50) + ' more books…</div>' : '';
     $('changesList').innerHTML = html + more;
   } catch(e) {
     $('changesList').innerHTML = '<div style="color:#ef4444;padding:1rem">Error: ' + e.message + '</div>';
     console.error('renderChanges error:', e);
   }
+  updateSelectAllState();
+}
+
+function filterChanges(){
+  renderFilteredChanges();
+  $('selectAllChk').checked = false;
+}
+
+function updateChangeCountBadge(total, filtered){
+  var badge = $('changeCountBadge');
+  if(!badge) return;
+  if(filtered !== undefined && filtered !== total)
+    badge.textContent = filtered + ' shown of ' + total;
+  else
+    badge.textContent = total + ' book' + (total===1?'':'s');
+}
+
+function onCardCheck(){
+  updateSelectAllState();
+  updateApplySelectedBtn();
+}
+
+function toggleSelectAll(checked){
+  document.querySelectorAll('.card-chk').forEach(chk=>{ chk.checked=checked; });
+  updateApplySelectedBtn();
+}
+
+function updateSelectAllState(){
+  var chks = Array.from(document.querySelectorAll('.card-chk'));
+  var allChk = $('selectAllChk');
+  if(!allChk||!chks.length) return;
+  var checkedCount = chks.filter(c=>c.checked).length;
+  allChk.checked = checkedCount===chks.length;
+  allChk.indeterminate = checkedCount>0 && checkedCount<chks.length;
+}
+
+function updateApplySelectedBtn(){
+  var chks = Array.from(document.querySelectorAll('.card-chk'));
+  var count = chks.filter(c=>c.checked).length;
+  var btn = $('btnApplySelected');
+  var countEl = $('selectedCount');
+  if(!btn) return;
+  if(count > 0 && count < chks.length){
+    btn.style.display='inline-flex';
+    if(countEl) countEl.textContent=count;
+  } else {
+    btn.style.display='none';
+  }
+}
+
+function getSelectedIds(){
+  var chks = Array.from(document.querySelectorAll('.card-chk:checked'));
+  return chks.map(c=>c.dataset.id).filter(Boolean);
 }
 
 
 
 // ── Actions ───────────────────────────────────────────────────────────────────
-async function startApply()  { await runJob('/api/apply',{dry_run:false},'⚙ Applying changes…',   '✅ Apply complete',   '❌ Apply failed'); }
-async function startDryRun() { await runJob('/api/apply',{dry_run:true}, '⚙ Dry run preview…',    '✅ Dry run complete', '❌ Dry run failed'); }
-async function startCleanEmpty(dry){ await runJob('/api/clean-empty',{dry_run:dry}, dry?'⚙ Dry run — empty dirs…':'⚙ Cleaning empty directories…','✅ Cleanup complete','❌ Cleanup failed'); }
+async function startApply(selectedOnly){
+  const selIds = selectedOnly ? getSelectedIds() : null;
+  if(selectedOnly && (!selIds||selIds.length===0)){ toast('No books selected.',false); return; }
+  await runJob('/api/apply',{dry_run:false, selected_ids:selIds},
+    '⚙ Applying changes…','✅ Apply complete','❌ Apply failed', true);
+}
+async function startDryRun(){
+  await runJob('/api/apply',{dry_run:true},'⚙ Dry run preview…','✅ Dry run complete','❌ Dry run failed');
+}
+async function startCleanEmpty(dry){
+  await runJob('/api/clean-empty',{dry_run:dry},
+    dry?'⚙ Dry run — empty dirs…':'⚙ Cleaning empty directories…',
+    '✅ Cleanup complete','❌ Cleanup failed');
+}
 
-async function runJob(endpoint, extra, tRunning, tDone, tFail){
+async function runJob(endpoint, extra, tRunning, tDone, tFail, checkRollbackAfter){
   if(endpoint==='/api/apply'&&!cacheKey){ toast('Scan first.',false); return; }
   if(!currentPath){ toast('Scan first.',false); return; }
 
@@ -960,8 +1127,35 @@ async function runJob(endpoint, extra, tRunning, tDone, tFail){
       const ok=jd.status==='done';
       setTermTitle(ok?tDone:tFail);
       toast(ok?tDone.replace('✅ ',''):tFail.replace('❌ ',''), ok);
+      if(ok && checkRollbackAfter) checkRollback();
     });
   }catch(e){ appendTerm('ERROR: '+e.message); toast(e.message,false); }
+}
+
+// ── Rollback ──────────────────────────────────────────────────────────────────
+async function checkRollback(){
+  if(!currentPath) return;
+  try{
+    const r=await fetch('/api/rollback/status',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({library_path:currentPath}),
+    });
+    const d=await r.json();
+    if(d.available){
+      $('rollbackHint').textContent=`Last apply moved ${d.files} file(s) across ${d.books} book(s). Click to undo.`;
+      show('rollbackSection');
+    } else {
+      hide('rollbackSection');
+    }
+  }catch(_){ hide('rollbackSection'); }
+}
+
+async function startRollback(){
+  if(!currentPath){ toast('No library loaded.',false); return; }
+  if(!confirm('Roll back all changes from the last apply run? This will move files back to their original locations.')) return;
+  await runJob('/api/rollback',{},'⚙ Rolling back…','✅ Rollback complete','❌ Rollback failed');
+  // Hide rollback section after — data is consumed
+  setTimeout(()=>{ hide('rollbackSection'); checkRollback(); }, 1200);
 }
 
 // ── Log viewer ────────────────────────────────────────────────────────────────
