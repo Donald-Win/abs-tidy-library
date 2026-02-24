@@ -61,9 +61,9 @@ class NamingConfig:
     folder_standalone:  str = "{Author}/{Title}"
     folder_series:      str = "{Author}/{Series}/{Series-Index} {Title}"
     file_single:        str = "{Author} - {Title}"
-    file_multi:         str = "{Author} - {Title} - Part {Part-Index}"
+    file_multi:         str = "{Author} - {Title} (Part {Part-Index} of {Part-Total})"
     file_single_series: str = "{Author} - {Series} {Series-Index} - {Title}"
-    file_multi_series:  str = "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}"
+    file_multi_series:  str = "{Author} - {Series} {Series-Index} - {Title} (Part {Part-Index} of {Part-Total})"
 
     # Preset library
     PRESETS: dict = field(default_factory=lambda: {
@@ -72,45 +72,45 @@ class NamingConfig:
             "folder_standalone": "{Author}/{Title}",
             "folder_series":     "{Author}/{Series}/{Series-Index} {Title}",
             "file_single":       "{Author} - {Title}",
-            "file_multi":        "{Author} - {Title} - Part {Part-Index}",
+            "file_multi":        "{Author} - {Title} (Part {Part-Index} of {Part-Total})",
             "file_single_series":  "{Author} - {Series} {Series-Index} - {Title}",
-            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
+            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} (Part {Part-Index} of {Part-Total})",
         },
         "series-first": {
             "label": "Series First",
             "folder_standalone": "{Author}/{Title}",
             "folder_series":     "{Series}/{Series-Index} {Title}",
             "file_single":       "{Author} - {Title}",
-            "file_multi":        "{Author} - {Title} - Part {Part-Index}",
+            "file_multi":        "{Author} - {Title} (Part {Part-Index} of {Part-Total})",
             "file_single_series":  "{Author} - {Series} {Series-Index} - {Title}",
-            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
+            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} (Part {Part-Index} of {Part-Total})",
         },
         "plex": {
             "label": "Plex-friendly",
             "folder_standalone": "{Author}/{Title}",
             "folder_series":     "{Author}/{Series}/{Series-Index} - {Title}",
             "file_single":       "{Title}",
-            "file_multi":        "{Title} - Part {Part-Index}",
+            "file_multi":        "{Title} (Part {Part-Index} of {Part-Total})",
             "file_single_series":  "{Author} - {Series} {Series-Index} - {Title}",
-            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
+            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} (Part {Part-Index} of {Part-Total})",
         },
         "minimal": {
             "label": "Minimal",
             "folder_standalone": "{Author}/{Title}",
             "folder_series":     "{Author}/{Series}/{Series-Index} {Title}",
             "file_single":       "{Title}",
-            "file_multi":        "{Title} - Part {Part-Index}",
+            "file_multi":        "{Title} (Part {Part-Index} of {Part-Total})",
             "file_single_series":  "{Author} - {Series} {Series-Index} - {Title}",
-            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
+            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} (Part {Part-Index} of {Part-Total})",
         },
         "series-in-filename": {
             "label": "Series in Filename",
             "folder_standalone": "{Author}/{Title}",
             "folder_series":     "{Author}/{Series}/{Series-Index} {Title}",
             "file_single":       "{Author} - {Series} {Series-Index} - {Title}",
-            "file_multi":        "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
+            "file_multi":        "{Author} - {Series} {Series-Index} - {Title} (Part {Part-Index} of {Part-Total})",
             "file_single_series":  "{Author} - {Series} {Series-Index} - {Title}",
-            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} - Part {Part-Index}",
+            "file_multi_series":   "{Author} - {Series} {Series-Index} - {Title} (Part {Part-Index} of {Part-Total})",
         },
     }, init=False, repr=False, compare=False)
 
