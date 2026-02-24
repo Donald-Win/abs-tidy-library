@@ -63,19 +63,19 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
 .stat-val{font-size:1.35rem;font-weight:800;color:var(--accent)}
 .stat-lbl{font-size:.68rem;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
 
-.changes-list{max-height:70vh;overflow-y:auto;display:flex;flex-direction:column;gap:.75rem;padding-right:.2rem}
+.changes-list{max-height:75vh;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;padding-right:.2rem}
 /* ── Change card ── */
-.change-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:row;align-items:flex-start;position:relative;transition:border-color .2s}
+.change-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;position:relative;transition:border-color .2s;overflow:hidden}
 .change-card:hover{border-color:var(--accent)}
 .card-select-wrap{position:absolute;top:.55rem;right:.6rem;z-index:2;cursor:pointer}
 .card-select-wrap input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
 .change-card:has(.card-chk:checked){border-color:var(--accent);background:rgba(108,99,255,.08)}
-/* Cover: 90px wide, auto height from aspect-ratio, rounded left corners only */
-.change-cover-wrap{flex-shrink:0;width:90px;border-radius:10px 0 0 10px;overflow:hidden;align-self:stretch;background:var(--surface);display:flex}
-.change-cover{width:90px;min-height:130px;aspect-ratio:2/3;object-fit:cover;display:block;flex-shrink:0}
-.change-cover-placeholder{width:90px;min-height:130px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;flex:1}
-/* Body: NOT height-constrained — grows freely with content */
-.change-body{flex:1;padding:.9rem 1rem;min-width:0}
+/* Cover: full-width square, whole cover visible, no crop */
+.change-cover-wrap{width:100%;aspect-ratio:1/1;overflow:hidden;background:var(--surface);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.change-cover{width:100%;height:100%;object-fit:contain;display:block}
+.change-cover-placeholder{font-size:3.5rem}
+/* Body: full width below the cover */
+.change-body{width:100%;padding:.85rem 1rem;min-width:0}
 .change-title{font-weight:700;font-size:1rem;line-height:1.35;word-break:break-word;margin-bottom:.3rem}
 .change-meta{font-size:.78rem;color:var(--muted);margin-bottom:.3rem}
 .change-series-badge{display:inline-flex;align-items:center;gap:.3rem;background:rgba(108,99,255,.18);color:#a5b4fc;border-radius:4px;padding:.18rem .55rem;font-size:.74rem;font-weight:600;margin-bottom:.3rem}
@@ -102,7 +102,7 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
 .diff-fname-old::before{content:"− ";opacity:.8}
 .diff-fname-new::before{content:"+ ";opacity:.8}
 /* Misc */
-.more-badge{display:inline-block;background:var(--surface2);border-radius:20px;padding:.3rem 1rem;font-size:.78rem;color:var(--muted);margin-top:.25rem;align-self:flex-start}
+.more-badge{grid-column:1/-1;text-align:center;background:var(--surface2);border-radius:20px;padding:.3rem 1rem;font-size:.78rem;color:var(--muted)}
 .arrow{color:var(--accent2);margin:0 4px}
 
 .terminal{background:#0a0c12;border:1px solid var(--border);border-radius:8px;padding:.9rem;font-family:'Courier New',monospace;font-size:.78rem;line-height:1.65;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:#a3e635}
@@ -447,7 +447,7 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
   </div>
 
   <!-- ── Rollback ────────────────────────────────────────────────────────────── -->
-  <div class="card section" id="rollbackSection" style="display:none;border-color:#6c63ff">
+  <div class="card section" id="rollbackSection" style="border-color:#6c63ff">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
       <div>
         <div class="card-title" style="margin-bottom:.2rem">↩ Rollback Available</div>
@@ -458,7 +458,7 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
   </div>
 
   <!-- ── Rescan prompt ────────────────────────────────────────────────────────── -->
-  <div class="card section" id="rescanPrompt" style="display:none;border-color:#f59e0b;padding:.85rem 1.2rem">
+  <div class="card section" id="rescanPrompt" style="border-color:#f59e0b;padding:.85rem 1.2rem">
     <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
       <span style="font-size:.84rem">⚠ Naming convention changed since last scan — results may be outdated.</span>
       <button class="btn btn-warn btn-sm" onclick="startScan()">Re-scan Now</button>
