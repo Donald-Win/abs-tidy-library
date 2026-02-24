@@ -138,12 +138,35 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
 .inline-preview-label{display:none}
 .inline-preview{min-height:0;padding:.3rem .6rem;font-size:.73rem;width:100%}
 .naming-section-label{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:.2rem 0}
+.drawer-section{border-bottom:1px solid var(--border);padding-bottom:1.2rem;margin-bottom:1.2rem}
+.drawer-section:last-child{border-bottom:none;margin-bottom:0}
 
 /* ── Toast ─────────────────────────────────────────────────────────────────── */
 #toast{position:fixed;bottom:1.75rem;right:1.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.7rem 1.1rem;font-size:.85rem;opacity:0;transform:translateY(10px);transition:all .28s;z-index:999;max-width:340px;pointer-events:none}
 #toast.show{opacity:1;transform:translateY(0)}
 #toast.ok {border-left:3px solid #4ade80}
 #toast.bad{border-left:3px solid #ef4444}
+
+/* ── Settings drawer ─────────────────────────────────────────────────────── */
+.settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s}
+.settings-overlay.open{opacity:1;pointer-events:all}
+.settings-drawer{position:fixed;top:0;right:0;bottom:0;width:min(480px,100vw);background:var(--surface);border-left:1px solid var(--border);z-index:201;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;padding:1.25rem}
+.settings-drawer.open{transform:translateX(0)}
+.drawer-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;padding-bottom:.85rem;border-bottom:1px solid var(--border)}
+.drawer-header h2{font-size:1rem;font-weight:700}
+.drawer-close{background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;line-height:1;padding:.2rem .4rem;border-radius:4px}
+.drawer-close:hover{color:var(--text);background:var(--surface2)}
+/* Gear button in header */
+.header-gear{margin-left:auto;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.45rem .8rem;font-size:.85rem;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:.4rem;font-family:inherit;font-weight:600;transition:border-color .2s}
+.header-gear:hover{border-color:var(--accent)}
+/* Status pill shown in header when connected */
+.header-status{font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:.4rem}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.status-dot.ok{background:#4ade80}
+
+/* Main view scan button — bigger and centered */
+.scan-hero{display:flex;flex-direction:column;align-items:center;gap:.6rem;padding:1.5rem 0 .5rem}
+.scan-hero .btn{padding:.85rem 2.2rem;font-size:1rem}
 
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 </style>
@@ -157,10 +180,23 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
       <h1>ABS Tidy Library</h1>
       <p>Audiobookshelf Library Organiser</p>
     </div>
+    <div class="header-status" id="headerStatus" style="display:none">
+      <span class="status-dot ok" id="statusDot"></span>
+      <span id="headerStatusText"></span>
+    </div>
+    <button class="header-gear" onclick="openSettings()">⚙ Settings</button>
   </header>
 
-  <!-- ── Connection ──────────────────────────────────────────────────────────── -->
-  <div class="card" id="connCard">
+  <!-- ── Settings Drawer ────────────────────────────────────────────────────── -->
+  <div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>
+  <div class="settings-drawer" id="settingsDrawer">
+    <div class="drawer-header">
+      <h2>⚙ Settings</h2>
+      <button class="drawer-close" onclick="closeSettings()">✕</button>
+    </div>
+
+    <!-- ── Connection ─────────────────────────────────────────────────────── -->
+    <div class="drawer-section" id="connCard">
     <!-- Summary bar (shown when connected) -->
     <div class="card-summary" id="connSummary">
       <span style="font-size:.85rem">🔗</span>
@@ -208,10 +244,10 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
         <div class="terminal" id="diagOutput"></div>
       </div>
     </div>
-  </div>
+    </div>
 
-  <!-- ── Library selector ────────────────────────────────────────────────────── -->
-  <div class="card section" id="libCard">
+    <!-- ── Library ──────────────────────────────────────────────────────────── -->
+    <div class="drawer-section" id="libCard">
     <!-- Summary bar (shown when library selected) -->
     <div class="card-summary" id="libSummary">
       <span style="font-size:.85rem">📚</span>
@@ -246,10 +282,10 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
         <button class="btn btn-ghost btn-sm" onclick="collapseLib()">✓ Done</button>
       </div>
     </div>
-  </div>
+    </div>
 
-  <!-- ── Naming convention ───────────────────────────────────────────────────── -->
-  <div class="card section" id="namingCard">
+    <!-- ── Naming convention ────────────────────────────────────────────────── -->
+    <div class="drawer-section" id="namingCard">
     <div class="card-title">
       🗂 Naming Convention
       <span id="envNamingBadge" class="env-badge" style="display:none">from environment</span>
@@ -353,11 +389,16 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
 
     </div>
 
-    <div class="btn-row">
+  </div><!-- end settingsDrawer -->
+
+  <!-- ── Main view ──────────────────────────────────────────────────────────── -->
+  <div class="card" id="mainCard">
+    <div class="scan-hero">
       <button class="btn btn-primary" id="btnScan" onclick="startScan()" disabled>
         <span class="spinner" id="scanSpinner" style="display:none"></span>
-        Scan Library
+        🔍 Scan Library
       </button>
+      <div id="mainHint" class="hint" style="text-align:center">Connect in Settings to get started.</div>
     </div>
   </div>
 
@@ -479,11 +520,18 @@ function poll(jobId, onDone){
   },600);
 }
 
+// ── Settings drawer ───────────────────────────────────────────────────────────
+function openSettings(){ $('settingsDrawer').classList.add('open'); $('settingsOverlay').classList.add('open'); }
+function closeSettings(){ $('settingsDrawer').classList.remove('open'); $('settingsOverlay').classList.remove('open'); }
+
 // ── Card collapse helpers ─────────────────────────────────────────────────────
 function collapseConn(label){
   $('connSummaryText').textContent = label;
   $('connSummary').classList.add('visible');
   $('connDetail').classList.add('hidden');
+  // Update header status pill
+  $('headerStatusText').textContent = label.replace('🔗 Connected as ','');
+  $('headerStatus').style.display='flex';
 }
 function collapseLib(){
   const sel=$('libSelect');
@@ -495,6 +543,8 @@ function collapseLib(){
   $('libSummaryPath').textContent = path ? '· ' + path : '';
   $('libSummary').classList.add('visible');
   $('libDetail').classList.add('hidden');
+  // Update main hint
+  $('mainHint').textContent = `Library: ${name}`;
 }
 function toggleCard(which){
   if(which==='conn'){
