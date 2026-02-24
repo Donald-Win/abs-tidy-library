@@ -47,7 +47,8 @@ class NamingConfig:
       {Language}      – Language (if set in ABS)
       {Publisher}     – Publisher name (if set in ABS)
       {Genre}         – First genre tag (if set in ABS)
-      {Part-Index}    – Zero-padded part number for multi-file books
+      {Part-Index}    – Zero-padded part number for multi-file books  e.g. 04
+      {Part-Total}    – Zero-padded total parts for multi-file books   e.g. 12
 
     folder_standalone      : folder path for books not in a series
     folder_series          : folder path for books in a series
@@ -388,7 +389,9 @@ def build_move_plan(
         if num_audio == 1:
             stem = render_template(tpl_single, tokens)
         else:
-            part_tokens = {**tokens, "Part-Index": str(idx).zfill(pad_width)}
+            part_tokens = {**tokens,
+                           "Part-Index": str(idx).zfill(pad_width),
+                           "Part-Total": str(num_audio).zfill(pad_width)}
             stem = render_template(tpl_multi, part_tokens)
         move_plan.append((old_f, target_dir / f"{stem}{ext}"))
 

@@ -23,6 +23,14 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
 /* env badge shown when credentials come from env */
 .env-badge{font-size:.7rem;background:rgba(108,99,255,.2);color:#a5b4fc;border:1px solid rgba(108,99,255,.4);border-radius:4px;padding:.15rem .45rem;margin-left:.5rem;vertical-align:middle}
 
+/* Collapsed card summary bar */
+.card-summary{display:none;align-items:center;gap:.6rem;flex-wrap:wrap}
+.card-summary.visible{display:flex}
+.card-detail{transition:none}
+.card-detail.hidden{display:none}
+.edit-toggle{font-size:.75rem;color:var(--muted);background:none;border:none;cursor:pointer;padding:.15rem .4rem;border-radius:4px;margin-left:auto;font-family:inherit}
+.edit-toggle:hover{color:var(--text);background:var(--surface2)}
+
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.4rem;margin-bottom:1.4rem}
 .card-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
 
@@ -126,9 +134,9 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
   padding:.55rem .85rem;font-size:.78rem;font-family:monospace;
   color:#a3e635;min-height:2.2rem;word-break:break-all;line-height:1.6
 }
-.inline-preview-row{display:flex;align-items:baseline;gap:.5rem;margin-top:.35rem}
-.inline-preview-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);white-space:nowrap;flex-shrink:0}
-.inline-preview{flex:1;min-height:0;padding:.3rem .6rem;font-size:.73rem}
+.inline-preview-row{margin-top:.3rem}
+.inline-preview-label{display:none}
+.inline-preview{min-height:0;padding:.3rem .6rem;font-size:.73rem;width:100%}
 .naming-section-label{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:.2rem 0}
 
 /* ── Toast ─────────────────────────────────────────────────────────────────── */
@@ -152,72 +160,90 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
   </header>
 
   <!-- ── Connection ──────────────────────────────────────────────────────────── -->
-  <div class="card">
-    <div class="card-title">
-      🔗 Audiobookshelf Connection
-      <span id="envCredBadge" class="env-badge" style="display:none">from environment</span>
-    </div>
-
-    <div class="row">
-      <div class="field">
-        <label>Server URL</label>
-        <input type="text" id="absUrl"
-               value="{{ env_server_url }}"
-               placeholder="http://192.168.1.100:13378"
-               autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
-      </div>
-      <div class="field">
-        <label>API Key / Token</label>
-        <input type="password" id="absToken"
-               value="{{ env_token }}"
-               placeholder="Paste your API Key here"
-               autocomplete="off"/>
-      </div>
-    </div>
-
-    <div class="hint" style="margin-bottom:.75rem">
-      Create an API Key at <strong>ABS → Settings → API Keys → Add API Key</strong>.
-      Pre-fill permanently by setting <code>ABS_SERVER_URL</code> and <code>ABS_TOKEN</code>
-      in your <code>docker-compose.yml</code>.
-    </div>
-
-    <div class="btn-row" style="margin-top:0">
-      <button class="btn btn-primary" id="btnConnect" onclick="connect()">
-        <span class="spinner" id="connectSpinner" style="display:none"></span>
-        Connect
-      </button>
-      <button class="btn btn-ghost btn-sm" onclick="diagnose()">🔍 Diagnose</button>
+  <div class="card" id="connCard">
+    <!-- Summary bar (shown when connected) -->
+    <div class="card-summary" id="connSummary">
+      <span style="font-size:.85rem">🔗</span>
+      <span id="connSummaryText" style="font-size:.85rem;font-weight:600"></span>
       <span id="connStatus"></span>
+      <button class="edit-toggle" onclick="toggleCard('conn')">⚙ Edit</button>
     </div>
 
-    <div id="diagPanel" style="display:none;margin-top:.9rem">
-      <div class="card-title" style="margin-bottom:.4rem">🔍 Raw Diagnostic Output</div>
-      <div class="terminal" id="diagOutput"></div>
+    <!-- Full detail (shown when not yet connected or editing) -->
+    <div class="card-detail" id="connDetail">
+      <div class="card-title">
+        🔗 Audiobookshelf Connection
+        <span id="envCredBadge" class="env-badge" style="display:none">from environment</span>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Server URL</label>
+          <input type="text" id="absUrl"
+                 value="{{ env_server_url }}"
+                 placeholder="http://192.168.1.100:13378"
+                 autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
+        </div>
+        <div class="field">
+          <label>API Key / Token</label>
+          <input type="password" id="absToken"
+                 value="{{ env_token }}"
+                 placeholder="Paste your API Key here"
+                 autocomplete="off"/>
+        </div>
+      </div>
+      <div class="hint" style="margin-bottom:.75rem">
+        Create an API Key at <strong>ABS → Settings → API Keys → Add API Key</strong>.
+        Pre-fill permanently by setting <code>ABS_SERVER_URL</code> and <code>ABS_TOKEN</code>
+        in your <code>docker-compose.yml</code>.
+      </div>
+      <div class="btn-row" style="margin-top:0">
+        <button class="btn btn-primary" id="btnConnect" onclick="connect()">
+          <span class="spinner" id="connectSpinner" style="display:none"></span>
+          Connect
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="diagnose()">🔍 Diagnose</button>
+      </div>
+      <div id="diagPanel" style="display:none;margin-top:.9rem">
+        <div class="card-title" style="margin-bottom:.4rem">🔍 Raw Diagnostic Output</div>
+        <div class="terminal" id="diagOutput"></div>
+      </div>
     </div>
   </div>
 
   <!-- ── Library selector ────────────────────────────────────────────────────── -->
   <div class="card section" id="libCard">
-    <div class="card-title">
-      📚 Library
-      <span id="envLibBadge" class="env-badge" style="display:none">from environment</span>
+    <!-- Summary bar (shown when library selected) -->
+    <div class="card-summary" id="libSummary">
+      <span style="font-size:.85rem">📚</span>
+      <span id="libSummaryText" style="font-size:.85rem;font-weight:600"></span>
+      <span style="font-size:.8rem;color:var(--muted)" id="libSummaryPath"></span>
+      <button class="edit-toggle" onclick="toggleCard('lib')">⚙ Edit</button>
     </div>
 
-    <div class="field">
-      <label>Select Library</label>
-      <select id="libSelect" onchange="onLibSelect()">
-        <option value="">— choose a library —</option>
-      </select>
-    </div>
-
-    <div class="field section" id="pathField">
-      <label>Filesystem path (inside this container)</label>
-      <input type="text" id="libPath" placeholder="/library"
-             autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
-      <div class="hint">
-        ABS reports root: <code id="reportedPath">—</code><br>
-        Must match where the library files are mounted in this container.
-        Set <code>LIBRARY_PATH</code> and <code>ABS_LIBRARY_ID</code> in compose to pre-fill.
+    <!-- Full detail -->
+    <div class="card-detail" id="libDetail">
+      <div class="card-title">
+        📚 Library
+        <span id="envLibBadge" class="env-badge" style="display:none">from environment</span>
+      </div>
+      <div class="field">
+        <label>Select Library</label>
+        <select id="libSelect" onchange="onLibSelect()">
+          <option value="">— choose a library —</option>
+        </select>
+      </div>
+      <div class="field section" id="pathField">
+        <label>Filesystem path (inside this container)</label>
+        <input type="text" id="libPath" placeholder="/library"
+               autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
+        <div class="hint">
+          ABS reports root: <code id="reportedPath">—</code><br>
+          Must match where the library files are mounted in this container.
+          Set <code>LIBRARY_PATH</code> and <code>ABS_LIBRARY_ID</code> in compose to pre-fill.
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:.5rem">
+        <button class="btn btn-ghost btn-sm" onclick="collapseLib()">✓ Done</button>
       </div>
     </div>
   </div>
@@ -240,6 +266,7 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
       <span class="token-chip" onclick="insertToken('{Narrator}')">    {Narrator}</span>
       <span class="token-chip" onclick="insertToken('{Year}')">        {Year}</span>
       <span class="token-chip" onclick="insertToken('{Part-Index}')">{Part-Index}</span>
+      <span class="token-chip" onclick="insertToken('{Part-Total}')">{Part-Total}</span>
       <span class="token-chip" onclick="insertToken('{ISBN}')">        {ISBN}</span>
       <span class="token-chip" onclick="insertToken('{ASIN}')">        {ASIN}</span>
       <span class="token-chip" onclick="insertToken('{Language}')">    {Language}</span>
@@ -452,13 +479,38 @@ function poll(jobId, onDone){
   },600);
 }
 
-// ── Init: mark env-sourced fields ─────────────────────────────────────────────
-(function(){
-  const url   = $('absUrl').value.trim();
-  const tok   = $('absToken').value.trim();
-  if(url || tok){
-    $('envCredBadge').style.display='inline';
+// ── Card collapse helpers ─────────────────────────────────────────────────────
+function collapseConn(label){
+  $('connSummaryText').textContent = label;
+  $('connSummary').classList.add('visible');
+  $('connDetail').classList.add('hidden');
+}
+function collapseLib(){
+  const sel=$('libSelect');
+  const opt=sel.options[sel.selectedIndex];
+  const name = opt && opt.value ? opt.textContent : '';
+  const path = $('libPath').value.trim();
+  if(!name) return;
+  $('libSummaryText').textContent = name;
+  $('libSummaryPath').textContent = path ? '· ' + path : '';
+  $('libSummary').classList.add('visible');
+  $('libDetail').classList.add('hidden');
+}
+function toggleCard(which){
+  if(which==='conn'){
+    $('connSummary').classList.remove('visible');
+    $('connDetail').classList.remove('hidden');
+  } else {
+    $('libSummary').classList.remove('visible');
+    $('libDetail').classList.remove('hidden');
   }
+}
+
+// ── Init: auto-connect if env vars present ────────────────────────────────────
+(function(){
+  const url = $('absUrl').value.trim();
+  const tok = $('absToken').value.trim();
+  if(url || tok) $('envCredBadge').style.display='inline';
 
   // Track focus on naming inputs for token insertion
   ['nFolderStandalone','nFolderSeries','nFileSingle','nFileMulti','nFileSingleSeries','nFileMultiSeries'].forEach(id=>{
@@ -466,6 +518,9 @@ function poll(jobId, onDone){
   });
 
   updatePreviews();
+
+  // Auto-connect if both env vars are present
+  if(url && tok) connect();
 })();
 
 // ── Connect ───────────────────────────────────────────────────────────────────
@@ -488,9 +543,9 @@ async function connect(){
     busy('btnConnect','connectSpinner',false);
 
     if(d.ok){
-      $('connStatus').innerHTML=`<span class="badge badge-ok">✓ ${esc(d.message||'Connected')}</span>`;
       absCtx.server_url=url; absCtx.token=tok;
-      toast('Connected!');
+      const label = (d.message||'Connected').replace(/^Connected as /,'');
+      collapseConn('🔗 Connected as ' + label);
       await loadLibraries(url,tok);
     }else{
       $('connStatus').innerHTML=`<span class="badge badge-fail">✗ ${esc(d.error||'Failed')}</span>`;
@@ -564,6 +619,11 @@ async function loadLibraries(url,tok){
     if('{{ env_library_path }}' && !$('libPath').value){
       $('libPath').value='{{ env_library_path }}';
     }
+
+    // Auto-collapse library card if fully configured from env
+    if(autoSel && '{{ env_library_path }}'){
+      setTimeout(collapseLib, 50);
+    }
   }catch(e){ toast(e.message,false); }
 }
 
@@ -616,22 +676,24 @@ function updatePreviews(){
     Series:'', 'Series-Index':'', Narrator:'Michael Kramer', Year:'2006',
     ISBN:'9780765311788', ASIN:'B002V0QVYO', Language:'English',
     Publisher:'Tor Books', Genre:'Fantasy',
+    'Part-Index':'02', 'Part-Total':'12',
   };
   const sampleSeries={
     Author:'Brandon Sanderson', Title:'The Final Empire', Subtitle:'',
     Series:'Mistborn', 'Series-Index':'01', Narrator:'Michael Kramer', Year:'2006',
     ISBN:'9780765311788', ASIN:'B002V0QVYO', Language:'English',
     Publisher:'Tor Books', Genre:'Fantasy',
+    'Part-Index':'02', 'Part-Total':'12',
   };
 
   $('prevStandalone').textContent = renderTemplate($('nFolderStandalone').value, sampleStandalone)+'/';
   $('prevSeries').textContent     = renderTemplate($('nFolderSeries').value,     sampleSeries)+'/';
   $('prevFileSingle').textContent       = renderTemplate($('nFileSingle').value,       sampleStandalone)+'.m4b';
   $('prevFileMulti').textContent        = renderTemplate($('nFileMulti').value,
-    {...sampleStandalone,'Part-Index':'02'})+'.m4b';
+    sampleStandalone)+'.m4b';
   $('prevFileSingleSeries').textContent = renderTemplate($('nFileSingleSeries').value, sampleSeries)+'.m4b';
   $('prevFileMultiSeries').textContent  = renderTemplate($('nFileMultiSeries').value,
-    {...sampleSeries,'Part-Index':'02'})+'.m4b';
+    sampleSeries)+'.m4b';
 }
 
 function getNaming(){
