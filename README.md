@@ -10,14 +10,12 @@ A web UI for automatically organising your [Audiobookshelf](https://www.audioboo
 ## ✨ What It Does
 
 - **Scans** your ABS library and shows statistics — books, authors, series, total play-time and size
-- **Proposes changes** as rich diff cards showing exactly what folder and file names will change
+- **Proposes changes** as diff cards showing exactly what folder and file names will change
 - **Dry Run** mode simulates every move with zero changes made to disk
 - **Selective apply** — tick the books you want moved instead of doing them all at once
 - **Rollback** — one click to undo the last apply run, even after a page reload
 - **Collision detection** — warns you before applying if two books would resolve to the same path
-- **Auto re-scan prompt** — nudges you if you edit naming templates after a scan
 - **Cleans empty directories** left over after moves
-- **Live terminal** streams progress as it runs
 - **Persistent settings** — naming templates survive container restarts
 
 ---
@@ -30,25 +28,17 @@ A web UI for automatically organising your [Audiobookshelf](https://www.audioboo
 curl -O https://raw.githubusercontent.com/Donald-Win/abs-tidy-library/main/compose.yaml
 ```
 
-### 2. Edit the two required lines
-
-Open `compose.yaml` and change the volume paths to match your setup:
+### 2. Edit the three required values
 
 ```yaml
 volumes:
-  - /your/actual/audiobooks:/library   # where your books live on the host
-  - /your/actual/config:/config        # any persistent folder for settings
-```
+  - /your/audiobooks:/library   # same host path as your ABS compose (see note below)
+  - /any/config/folder:/config  # any persistent folder for settings
 
-And fill in your ABS connection details:
-
-```yaml
 environment:
-  ABS_SERVER_URL: "http://192.168.1.100:13378"
-  ABS_TOKEN:      "your-api-key-here"
+  ABS_SERVER_URL: "http://192.168.1.100:13378"   # your server's LAN IP
+  ABS_TOKEN:      "your-api-key-here"             # from ABS → Settings → API Keys
 ```
-
-> **Finding your API key:** In Audiobookshelf go to **Settings → API Keys → Add API Key**, give it a name, and copy the key.
 
 ### 3. Start
 
@@ -56,68 +46,66 @@ environment:
 docker compose up -d
 ```
 
-Open **http://your-server-ip:5050** in a browser. If your env vars are set correctly, it will connect and auto-select your library automatically — just hit **Scan Library**.
+Open **http://your-server:5050** — if your env vars are set it will connect automatically. Hit **Scan Library**.
+
+---
+
+## ⚠️ Common Gotchas
+
+**Volume path must match your ABS setup**
+The left side of the audiobooks volume mount must point to the same host directory that ABS is already serving. The right side (container path) can be anything, but must match `LIBRARY_PATH`.
+
+```yaml
+# Your ABS compose might have:
+- /media/Audiobooks:/audiobooks
+
+# So this tool needs the same left side:
+- /media/Audiobooks:/library
+```
+
+**Use your LAN IP, not localhost**
+Even if ABS is running on the same machine, containers can't reach each other via `localhost` or `127.0.0.1`. Use the actual LAN IP of your server (e.g. `192.168.1.100`).
+
+**The API key needs to be from an admin account**
+The tool reads library metadata and triggers rescans. A non-admin token won't have access to do this.
+
+**`LIBRARY_PATH` must match your volume mount**
+If you mount as `:/library`, set `LIBRARY_PATH: "/library"`. They must agree.
+
+**The config mount must be a folder, not a file**
+Docker will create it automatically if it doesn't exist yet, as long as the path doesn't conflict with an existing file.
 
 ---
 
 ## ⚙️ Configuration Reference
 
-All settings can be configured in the UI. The environment variables below are optional — they pre-fill the UI and act as a fallback if no saved config exists.
-
-| Variable | Required | Description |
-|---|---|---|
-| `ABS_SERVER_URL` | Recommended | Your ABS server address e.g. `http://192.168.1.100:13378` |
-| `ABS_TOKEN` | Recommended | API key from ABS → Settings → API Keys |
-| `ABS_LIBRARY_ID` | Optional | Auto-selects a specific library on load |
-| `LIBRARY_PATH` | Optional | Path inside the container where books are mounted. Default: `/library` |
-| `CONFIG_PATH` | Optional | Where naming config is saved. Default: `/config/naming.json` |
-| `PORT` | Optional | Internal web server port. Default: `8080` |
-| `NAMING_FOLDER_STANDALONE` | Optional | Folder template for books not in a series |
-| `NAMING_FOLDER_SERIES` | Optional | Folder template for series books |
-| `NAMING_FILE_SINGLE` | Optional | Filename for standalone single-file books |
-| `NAMING_FILE_MULTI` | Optional | Filename for each part of standalone multi-part books |
-| `NAMING_FILE_SINGLE_SERIES` | Optional | Filename for series single-file books |
-| `NAMING_FILE_MULTI_SERIES` | Optional | Filename for each part of series multi-part books |
+| Variable | Description |
+|---|---|
+| `ABS_SERVER_URL` | Your ABS server address — use LAN IP, not localhost |
+| `ABS_TOKEN` | Admin API key from ABS → Settings → API Keys |
+| `ABS_LIBRARY_ID` | Optional — auto-selects a library. Find it in ABS → Settings → Libraries → click your library → copy the ID from the URL |
+| `LIBRARY_PATH` | Path inside the container where books are mounted. Must match your volume mount |
+| `CONFIG_PATH` | Where naming config is saved. Default: `/config/naming.json` |
 
 ---
 
 ## 🗂️ Naming Templates
 
-Templates are built from tokens that are replaced with real metadata from ABS. Configure them in the **Settings** drawer — they save automatically.
+Templates are configured in the **Settings** drawer and save automatically. Available tokens:
 
-### Available tokens
-
-| Token | Example output |
+| Token | Example |
 |---|---|
 | `{Author}` | `Brandon Sanderson` |
 | `{Title}` | `The Final Empire` |
-| `{Subtitle}` | `Book One of the Mistborn Saga` |
 | `{Series}` | `Mistborn` |
 | `{Series-Index}` | `01` |
 | `{Narrator}` | `Michael Kramer` |
 | `{Year}` | `2006` |
-| `{Publisher}` | `Tor Books` |
-| `{Genre}` | `Fantasy` |
-| `{Language}` | `English` |
-| `{ISBN}` | `9780765311788` |
-| `{ASIN}` | `B002V0QVYO` |
 | `{Part-Index}` | `02` |
 | `{Part-Total}` | `12` |
+| `{Subtitle}` `{Publisher}` `{Genre}` `{Language}` `{ISBN}` `{ASIN}` | if set in ABS |
 
-### Default templates
-
-```
-Standalone folder:      {Author}/{Title}
-Series folder:          {Author}/{Series}/{Series-Index} {Title}
-
-Standalone file:        {Author} - {Title}.m4b
-Standalone multi-part:  {Author} - {Title} (Part 02 of 12).m4b
-
-Series file:            {Author} - {Series} 01 - {Title}.m4b
-Series multi-part:      {Author} - {Series} 01 - {Title} (Part 02 of 12).m4b
-```
-
-### Example output
+Default output looks like:
 
 ```
 Brandon Sanderson/
@@ -133,9 +121,9 @@ Brandon Sanderson/
 
 ---
 
-## 🔒 Safety
+## 🔒 Recommended Workflow
 
-**Nothing is moved until you explicitly click Apply.** The recommended workflow is:
+Nothing is moved until you explicitly click Apply.
 
 1. **Scan** — reads metadata from ABS, builds the change plan
 2. **Review** — inspect every proposed change in the diff cards
@@ -143,19 +131,16 @@ Brandon Sanderson/
 4. **Apply** (or **Apply Selected** for a subset)
 5. **Rollback** if anything looks wrong — reverts all files from the last apply
 
-The tool also checks for **naming collisions** before you apply — if two books would end up with the same folder or filename, it warns you to fix your templates or ABS metadata first.
-
 ---
 
 ## 🔧 Permissions
 
-The container needs **read and write access** to your library directory. If you run into permission errors, add a `user` line matching your host user's UID and GID:
+If you hit permission errors, add a `user` line matching your host user:
 
 ```yaml
 services:
   abs-tidy-library:
-    image: donaldwin/abs-tidy-library:latest
-    user: "1000:1000"   # replace with your UID:GID (run `id` on the host to find these)
+    user: "1000:1000"   # run `id` on your host to find your UID:GID
 ```
 
 ---
@@ -163,33 +148,7 @@ services:
 ## 🔄 Updating
 
 ```bash
-docker compose pull
-docker compose up -d
-```
-
----
-
-## 🛠️ Building Locally
-
-```bash
-git clone https://github.com/Donald-Win/abs-tidy-library.git
-cd abs-tidy-library
-docker build -t abs-tidy-library:dev .
-docker run -d \
-  -p 5050:8080 \
-  -v /your/audiobooks:/library \
-  -v /your/config:/config \
-  -e ABS_SERVER_URL="http://192.168.1.100:13378" \
-  -e ABS_TOKEN="your-api-key" \
-  abs-tidy-library:dev
-```
-
-To run without Docker:
-
-```bash
-cd app
-pip install flask gunicorn requests
-python web.py
+docker compose pull && docker compose up -d
 ```
 
 ---

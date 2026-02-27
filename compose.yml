@@ -6,45 +6,42 @@ services:
     ports:
       - "5050:8080"           # Change 5050 to any free port on your host
     volumes:
-      - /path/to/audiobooks:/library    # ← Required: your audiobook library
-      - /path/to/config:/config         # ← Recommended: persists naming settings
+      # The left side must be the same host path that your ABS compose mounts.
+      # The right side can be anything — just keep it in sync with LIBRARY_PATH below.
+      - /path/to/audiobooks:/library
+
+      # A folder for persisting your naming settings between container restarts.
+      # Must be a directory (not a file). Will be created automatically if it doesn't exist.
+      - /path/to/config:/config
+
     environment:
-
       # ── Audiobookshelf connection ────────────────────────────────────────────
-      # These pre-fill the UI on load — no need to type them every time.
-      ABS_SERVER_URL: "http://192.168.1.100:13378"   # Your ABS server address
-      ABS_TOKEN:      "your-api-key-here"             # ABS → Settings → API Keys
-      ABS_LIBRARY_ID: ""                              # Optional — auto-selects library
-                                                      # Find it: ABS → Settings → Libraries
+      # Use your server's LAN IP — not localhost or 127.0.0.1.
+      # Those won't work from inside a container even if ABS is on the same machine.
+      ABS_SERVER_URL: "http://192.168.1.100:13378"
 
-      # ── Library path inside this container ───────────────────────────────────
+      # API key from ABS → Settings → API Keys → Add API Key.
+      # Must be an admin account — the tool reads library metadata and triggers rescans.
+      ABS_TOKEN: "your-api-key-here"
+
+      # Optional — auto-selects a library on load so you don't have to pick it manually.
+      # Find it in ABS → Settings → Libraries → click your library → copy the ID from the URL.
+      ABS_LIBRARY_ID: ""
+
+      # ── Paths ────────────────────────────────────────────────────────────────
       # Must match the right side of your audiobooks volume mount above.
       LIBRARY_PATH: "/library"
 
-      # ── Config persistence ────────────────────────────────────────────────────
-      # Naming templates are saved here between container restarts.
       # Must match the right side of your config volume mount above.
       CONFIG_PATH: "/config/naming.json"
 
       # ── Naming templates (optional) ───────────────────────────────────────────
-      # Configure these in the UI instead — they save automatically to CONFIG_PATH.
-      # These env vars are only used as a fallback if no saved config exists.
+      # Configure these in the UI instead — they save automatically.
+      # These are only used as a fallback if no saved config exists yet.
       #
-      # Available tokens:
-      #   {Author}        Author name
-      #   {Title}         Book title
-      #   {Series}        Series name
-      #   {Series-Index}  Zero-padded position in series  e.g. 01, 02, 12
-      #   {Narrator}      Narrator name
-      #   {Year}          Publish year
-      #   {Subtitle}      Subtitle (if set in ABS)
-      #   {Publisher}     Publisher name
-      #   {Genre}         First genre tag
-      #   {Language}      Language
-      #   {ISBN}          ISBN-13 or ISBN-10
-      #   {ASIN}          Amazon ASIN
-      #   {Part-Index}    Part number for multi-file books  e.g. 01, 02
-      #   {Part-Total}    Total parts for multi-file books  e.g. 12
+      # Tokens: {Author} {Title} {Series} {Series-Index} {Narrator} {Year}
+      #         {Subtitle} {Publisher} {Genre} {Language} {ISBN} {ASIN}
+      #         {Part-Index} {Part-Total}
       #
       # NAMING_FOLDER_STANDALONE:  "{Author}/{Title}"
       # NAMING_FOLDER_SERIES:      "{Author}/{Series}/{Series-Index} {Title}"
