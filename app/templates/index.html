@@ -108,6 +108,30 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
 .terminal{background:#0a0c12;border:1px solid var(--border);border-radius:8px;padding:.9rem;font-family:'Courier New',monospace;font-size:.78rem;line-height:1.65;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:#a3e635}
 .t-err{color:#ef4444}.t-ok{color:#4ade80}.t-info{color:#93c5fd}
 
+/* Progress bar */
+.progress-wrap{margin-bottom:.75rem;display:none}
+.progress-wrap.active{display:block}
+.progress-track{background:var(--surface2);border-radius:20px;height:6px;overflow:hidden;margin-bottom:.35rem}
+.progress-fill{height:100%;background:var(--accent);border-radius:20px;transition:width .4s ease;width:0%}
+.progress-label{font-size:.76rem;color:var(--muted);display:flex;justify-content:space-between}
+
+/* Filter chips */
+.filter-chips{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem}
+.chip{padding:.28rem .7rem;border-radius:20px;font-size:.76rem;font-weight:600;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap}
+.chip:hover{border-color:var(--accent);color:var(--text)}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* Sort row */
+.sort-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap}
+.sort-row select{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.35rem .65rem;color:var(--text);font-size:.8rem;outline:none;font-family:inherit;cursor:pointer}
+.sort-row select:focus{border-color:var(--accent)}
+
+/* Expandable card files */
+.files-expand-btn{font-size:.7rem;color:var(--accent);background:none;border:none;cursor:pointer;padding:.2rem 0;font-family:inherit;display:block;margin-top:.2rem}
+.files-expand-btn:hover{opacity:.75}
+.extra-files{display:none}
+.extra-files.open{display:block}
+
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid transparent;border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -426,11 +450,27 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
       <span id="changeCountBadge" style="margin-left:auto;font-size:.78rem;font-weight:400;color:var(--muted)"></span>
     </div>
 
-    <!-- Filter + select bar -->
-    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap">
-      <input type="text" id="changesFilter" placeholder="🔍 Filter by title or author…"
+    <!-- Filter chips -->
+    <div class="filter-chips" id="filterChips">
+      <button class="chip active" data-filter="all"        onclick="setFilter('all')">All</button>
+      <button class="chip"        data-filter="folder"     onclick="setFilter('folder')">📁 Folder rename</button>
+      <button class="chip"        data-filter="files"      onclick="setFilter('files')">🎵 Files renamed</button>
+      <button class="chip"        data-filter="series"     onclick="setFilter('series')">📚 Series</button>
+      <button class="chip"        data-filter="standalone" onclick="setFilter('standalone')">🔖 Standalone</button>
+    </div>
+
+    <!-- Search + sort + select row -->
+    <div class="sort-row">
+      <input type="text" id="changesFilter" placeholder="🔍 Search title or author…"
              oninput="filterChanges()"
-             style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.45rem .75rem;color:var(--text);font-size:.84rem;outline:none"/>
+             style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.38rem .7rem;color:var(--text);font-size:.84rem;outline:none"/>
+      <select id="sortSelect" onchange="filterChanges()">
+        <option value="default">Sort: Default</option>
+        <option value="title">Title A–Z</option>
+        <option value="author">Author A–Z</option>
+        <option value="series">Series</option>
+        <option value="changes">Most changes</option>
+      </select>
       <label style="display:flex;align-items:center;gap:.35rem;font-size:.82rem;cursor:pointer;white-space:nowrap">
         <input type="checkbox" id="selectAllChk" onchange="toggleSelectAll(this.checked)"> Select all
       </label>
@@ -482,6 +522,13 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
   <!-- ── Terminal ────────────────────────────────────────────────────────────── -->
   <div class="card section" id="termSection">
     <div class="card-title" id="termTitle">⚙ Running…</div>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-label">
+        <span id="progressText">Starting…</span>
+        <span id="progressPct">0%</span>
+      </div>
+    </div>
     <div class="terminal" id="terminal"></div>
   </div>
 
@@ -550,17 +597,49 @@ function esc(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── Progress bar ─────────────────────────────────────────────────────────────
+let progressTotal = 0;
+
+function showProgress(total){
+  progressTotal = total;
+  $('progressFill').style.width = '0%';
+  $('progressText').textContent = 'Starting…';
+  $('progressPct').textContent  = '0%';
+  $('progressWrap').classList.add('active');
+}
+
+function updateProgress(current, total){
+  if(!total) return;
+  const pct = Math.round((current/total)*100);
+  $('progressFill').style.width = pct+'%';
+  $('progressText').textContent = `Book ${current} of ${total}`;
+  $('progressPct').textContent  = pct+'%';
+}
+
+function hideProgress(){
+  $('progressWrap').classList.remove('active');
+  progressTotal = 0;
+}
+
 // ── Polling ───────────────────────────────────────────────────────────────────
-function poll(jobId, onDone){
+function poll(jobId, onDone, withProgress){
   if(pollTimer) clearInterval(pollTimer);
   pollTimer=setInterval(async()=>{
     try{
       const r=await fetch(`/api/job/${jobId}?offset=${logOffset}`);
       const d=await r.json();
-      (d.log||[]).forEach(appendTerm);
+      (d.log||[]).forEach(line=>{
+        appendTerm(line);
+        // Parse "[N/total]" progress markers emitted by apply_changes
+        if(withProgress){
+          const m = line.match(/\[(\d+)\/(\d+)\]/);
+          if(m) updateProgress(parseInt(m[1]), parseInt(m[2]));
+        }
+      });
       logOffset+=(d.log||[]).length;
       if(d.status==='done'||d.status==='error'){
         clearInterval(pollTimer); pollTimer=null;
+        if(withProgress) hideProgress();
         onDone(d);
       }
     }catch(_){}
@@ -933,7 +1012,8 @@ function folderDiff(oldPath, newPath){
 }
 
 // Stored changes for filter/select
-let allChanges = [];
+let allChanges   = [];
+let activeFilter = 'all';
 
 function renderChanges(changes, total){
   allChanges = changes;
@@ -941,18 +1021,45 @@ function renderChanges(changes, total){
   renderFilteredChanges();
 }
 
+function setFilter(f){
+  activeFilter = f;
+  document.querySelectorAll('.chip[data-filter]').forEach(c=>{
+    c.classList.toggle('active', c.dataset.filter===f);
+  });
+  renderFilteredChanges();
+}
+
+function applySort(arr){
+  const s = $('sortSelect') ? $('sortSelect').value : 'default';
+  const copy = arr.slice();
+  if(s==='title')   return copy.sort((a,b)=>a.title.localeCompare(b.title));
+  if(s==='author')  return copy.sort((a,b)=>a.author.localeCompare(b.author));
+  if(s==='series')  return copy.sort((a,b)=>(a.series_name||'zzz').localeCompare(b.series_name||'zzz'));
+  if(s==='changes') return copy.sort((a,b)=>(b.file_changes||[]).length-(a.file_changes||[]).length);
+  return copy;
+}
+
 function renderFilteredChanges(){
   const q = ($('changesFilter').value||'').toLowerCase().trim();
-  const filtered = q
-    ? allChanges.filter(c=>(c.title+' '+c.author).toLowerCase().includes(q))
-    : allChanges;
 
-  updateChangeCountBadge(allChanges.length, filtered.length);
+  let filtered = allChanges.filter(c=>{
+    // Text search
+    if(q && !(c.title+' '+c.author).toLowerCase().includes(q)) return false;
+    // Type filter
+    if(activeFilter==='folder')     return c.folder_changed;
+    if(activeFilter==='files')      return (c.file_changes||[]).length > 0;
+    if(activeFilter==='series')     return !!c.series_name;
+    if(activeFilter==='standalone') return !c.series_name;
+    return true;
+  });
+
+  filtered = applySort(filtered);
+  updateChangeCountBadge(allChanges.length, filtered.length < allChanges.length ? filtered.length : undefined);
 
   try {
     var serverUrl = absCtx.server_url || '';
     var token     = absCtx.token || '';
-    var preview   = filtered.slice(0, 50);
+    var preview   = filtered.slice(0, 60);
     var html      = '';
 
     for(var ci=0; ci<preview.length; ci++){
@@ -987,26 +1094,34 @@ function renderFilteredChanges(){
           + '</div>';
       }
 
+      // File rows — show first 3, rest collapsible
       var filesBlock = '';
       if(fc.length > 0){
-        var fileRows = '';
-        var shown = fc.slice(0, 3);
-        var rest  = fc.length - 3;
-        for(var fi=0; fi<shown.length; fi++){
-          fileRows += '<div class="diff-file-row">'
-            + '<span class="diff-fname-old">' + esc(shown[fi].from) + '</span>'
-            + '<span class="diff-fname-new">' + esc(shown[fi].to) + '</span>'
+        var uid = 'fx_' + ci;
+        var makeFileRow = function(f){
+          return '<div class="diff-file-row">'
+            + '<span class="diff-fname-old">' + esc(f.from) + '</span>'
+            + '<span class="diff-fname-new">' + esc(f.to)   + '</span>'
             + '</div>';
+        };
+        var shownRows = fc.slice(0, 3).map(makeFileRow).join('');
+        var extraRows = '';
+        var expandBtn = '';
+        if(fc.length > 3){
+          extraRows = '<div class="extra-files" id="' + uid + '">'
+            + fc.slice(3).map(makeFileRow).join('') + '</div>';
+          expandBtn = '<button class="files-expand-btn" onclick="toggleFiles(&quot;' + uid + '&quot;,this)">'
+            + '\u25b8 Show ' + (fc.length-3) + ' more file' + (fc.length-3>1?'s':'') + '</button>';
         }
-        if(rest > 0) fileRows += '<div style="font-size:.65rem;color:var(--muted);padding:.15rem 0">+' + rest + ' more file' + (rest>1?'s':'') + '…</div>';
         filesBlock = '<div class="diff-section">'
           + '<div class="diff-label">Files</div>'
-          + '<div class="diff-row diff-files">' + fileRows + '</div>'
+          + '<div class="diff-row diff-files">' + shownRows + extraRows + '</div>'
+          + expandBtn
           + '</div>';
       }
 
       var itemId = c.item_id || '';
-      html += '<div class="change-card" data-id="' + esc(itemId) + '" data-search="' + esc((c.title+' '+c.author).toLowerCase()) + '">'
+      html += '<div class="change-card" data-id="' + esc(itemId) + '">'
         + '<label class="card-select-wrap" title="Select for partial apply">'
         + '<input type="checkbox" class="card-chk" data-id="' + esc(itemId) + '" onchange="onCardCheck()">'
         + '</label>'
@@ -1022,13 +1137,23 @@ function renderFilteredChanges(){
         + '</div>';
     }
 
-    var more = filtered.length > 50 ? '<div class="more-badge">+' + (filtered.length-50) + ' more books…</div>' : '';
+    var more = filtered.length > 60 ? '<div class="more-badge">+' + (filtered.length-60) + ' more — use filters to narrow results</div>' : '';
     $('changesList').innerHTML = html + more;
   } catch(e) {
     $('changesList').innerHTML = '<div style="color:#ef4444;padding:1rem">Error: ' + e.message + '</div>';
     console.error('renderChanges error:', e);
   }
   updateSelectAllState();
+}
+
+function toggleFiles(uid, btn){
+  var el = document.getElementById(uid);
+  if(!el) return;
+  var open = el.classList.toggle('open');
+  var rest = parseInt(btn.textContent.match(/\d+/)[0]);
+  btn.textContent = open
+    ? '▾ Hide extra files'
+    : '▸ Show ' + rest + ' more file' + (rest>1?'s':'');
 }
 
 function filterChanges(){
@@ -1089,8 +1214,11 @@ function getSelectedIds(){
 async function startApply(selectedOnly){
   const selIds = selectedOnly ? getSelectedIds() : null;
   if(selectedOnly && (!selIds||selIds.length===0)){ toast('No books selected.',false); return; }
+  const count = selIds ? selIds.length : allChanges.length;
+  if(count > 0) showProgress(count);
   await runJob('/api/apply',{dry_run:false, selected_ids:selIds},
-    '⚙ Applying changes…','✅ Apply complete','❌ Apply failed', true);
+    '⚙ Applying changes…','✅ Apply complete','❌ Apply failed',
+    {checkRollback:true, withProgress:true});
 }
 async function startDryRun(){
   await runJob('/api/apply',{dry_run:true},'⚙ Dry run preview…','✅ Dry run complete','❌ Dry run failed');
@@ -1101,7 +1229,7 @@ async function startCleanEmpty(dry){
     '✅ Cleanup complete','❌ Cleanup failed');
 }
 
-async function runJob(endpoint, extra, tRunning, tDone, tFail, checkRollbackAfter){
+async function runJob(endpoint, extra, tRunning, tDone, tFail, opts={}){
   if(endpoint==='/api/apply'&&!cacheKey){ toast('Scan first.',false); return; }
   if(!currentPath){ toast('Scan first.',false); return; }
 
@@ -1122,14 +1250,14 @@ async function runJob(endpoint, extra, tRunning, tDone, tFail, checkRollbackAfte
       body:JSON.stringify(payload),
     });
     const d=await r.json();
-    if(d.error){ appendTerm('ERROR: '+d.error); toast(d.error,false); return; }
+    if(d.error){ hideProgress(); appendTerm('ERROR: '+d.error); toast(d.error,false); return; }
     poll(d.job_id, jd=>{
       const ok=jd.status==='done';
       setTermTitle(ok?tDone:tFail);
       toast(ok?tDone.replace('✅ ',''):tFail.replace('❌ ',''), ok);
-      if(ok && checkRollbackAfter) checkRollback();
-    });
-  }catch(e){ appendTerm('ERROR: '+e.message); toast(e.message,false); }
+      if(ok && opts.checkRollback) checkRollback();
+    }, opts.withProgress);
+  }catch(e){ hideProgress(); appendTerm('ERROR: '+e.message); toast(e.message,false); }
 }
 
 // ── Rollback ──────────────────────────────────────────────────────────────────
