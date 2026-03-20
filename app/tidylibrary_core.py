@@ -243,6 +243,88 @@ class BookMove:
         }
 
 
+# ── Metadata quality ──────────────────────────────────────────────────────────
+
+@dataclass
+class MetadataIssue:
+    """A book whose ABS metadata is missing or poor quality."""
+    item_id: str
+    title: str
+    author: str
+    issues: List[str]
+
+    def to_dict(self) -> dict:
+        return {
+            "item_id": self.item_id,
+            "title":   self.title,
+            "author":  self.author,
+            "issues":  self.issues,
+        }
+
+
+def detect_metadata_issues(items) -> List[MetadataIssue]:
+    """
+    Inspect ABS items for metadata problems that would produce poor filenames.
+    Returns a list of MetadataIssue for any book that has fixable problems.
+    """
+    problems: List[MetadataIssue] = []
+    for item in items:
+        issues: List[str] = []
+        if not item.author or item.author == "Unknown Author":
+            issues.append("Missing author")
+        if not item.title or item.title == "Unknown Title":
+            issues.append("Missing title")
+        if item.series_name and not item.series_sequence:
+            issues.append(f"In series '{item.series_name}' but has no sequence number")
+        if item.series_name and re.search(r'#\s*\d', item.series_name):
+            issues.append("Series name contains '#N' -- may not have been parsed correctly")
+        if issues:
+            problems.append(MetadataIssue(
+                item_id=item.item_id,
+                title=item.title,
+                author=item.author,
+                issues=issues,
+            ))
+    return problems
+
+
+def check_filesystem_compatibility(
+    planned_moves: List["BookMove"],
+    root_path: Path,
+) -> List[str]:
+    """
+    Check whether all planned moves stay on the same filesystem.
+    Cross-device moves copy+delete rather than rename, so the inode changes
+    and ABS cannot track the move -- it will create a duplicate entry and
+    listen progress will be orphaned.
+    Returns a list of warning strings (empty = all safe).
+    """
+    warnings: List[str] = []
+    try:
+        dst_dev = os.stat(root_path).st_dev
+    except OSError:
+        return []
+
+    cross_device: List[str] = []
+    for bm in planned_moves:
+        if bm.old_dir.exists():
+            try:
+                src_dev = os.stat(bm.old_dir).st_dev
+                if src_dev != dst_dev:
+                    cross_device.append(bm.title)
+            except OSError:
+                pass
+
+    if cross_device:
+        sample = ", ".join(cross_device[:3]) + ("..." if len(cross_device) > 3 else "")
+        warnings.append(
+            f"{len(cross_device)} book(s) would move across filesystem boundaries "
+            f"({sample}). Inodes will change -- ABS may create duplicate entries "
+            f"and listen progress could be lost."
+        )
+    return warnings
+
+
 # ── String helpers ─────────────────────────────────────────────────────────────
 
 def natural_sort_key(s: Any) -> List:
@@ -603,25 +685,26 @@ def apply_changes(
     dry_run: bool = False,
     emit: Callable[[str], None] = _noop,
     selected_ids: Optional[List[str]] = None,
+    on_book_moved: Optional[Callable[[str], None]] = None,
 ) -> Tuple[Dict[str, int], List[Dict]]:
     """
     Apply planned moves. Returns (exec_stats, move_log).
-    move_log is a list of {title, from, to} entries suitable for rollback.
     If selected_ids is provided, only those item IDs are applied.
+    on_book_moved is called with abs_item_id after each successful real move
+    -- used to trigger per-item ABS rescans immediately after each book moves.
     """
-    # Filter to selected books if a subset was requested
     if selected_ids is not None:
         id_set = set(selected_ids)
         planned_moves = [bm for bm in planned_moves if bm.abs_item_id in id_set]
 
     collisions: Set[str] = set()
     exec_stats = {"applied": 0, "skipped": 0, "errors": 0}
-    move_log:  List[Dict] = []   # for rollback
+    move_log:  List[Dict] = []
     total  = len(planned_moves)
     prefix = "[DRY RUN] " if dry_run else ""
 
     log_event(log_file, f"--- SESSION START {prefix}: {total} books ---")
-    emit(f"{prefix}Starting {'preview' if dry_run else 'apply'} of {total} books…")
+    emit(f"{prefix}Starting {'preview' if dry_run else 'apply'} of {total} books...")
 
     for i, book in enumerate(planned_moves, 1):
         emit(f"{prefix}[{i}/{total}] {book.title}")
@@ -630,12 +713,18 @@ def apply_changes(
             exec_stats["applied"] += 1
             if entries:
                 move_log.append({
-                    "title":  book.title,
-                    "author": book.author,
-                    "moves":  entries,
+                    "title":   book.title,
+                    "author":  book.author,
+                    "moves":   entries,
                     "old_dir": str(book.old_dir),
                     "new_dir": str(book.target_dir),
                 })
+            # Per-item scan: notify ABS immediately after each book moves
+            if not dry_run and book.abs_item_id and on_book_moved:
+                try:
+                    on_book_moved(book.abs_item_id)
+                except Exception:
+                    pass
         else:
             exec_stats["errors"] += 1
 

@@ -16,6 +16,7 @@ from flask import Flask, render_template, request, jsonify, Response
 from tidylibrary_core import (
     scan_library_abs, apply_changes, rollback_moves, clean_empty_dirs,
     NamingConfig, load_naming_config, save_naming_config, log_event,
+    detect_metadata_issues, check_filesystem_compatibility,
 )
 from abs_api import ABSClient
 
@@ -255,16 +256,22 @@ def api_abs_scan():
             with cache_lock:
                 cache[ck] = (stats, planned)
 
+            # Metadata quality check and filesystem compatibility
+            metadata_issues  = detect_metadata_issues(abs_items)
+            fs_warnings      = check_filesystem_compatibility(planned, root_path)
+
             finish_job(jid, {
-                "cache_key":     ck,
-                "stats":         stats.to_dict(),
-                "changes_count": len(planned),
-                "changes":       [bm.to_dict(root_path) for bm in planned],
-                "collisions":    collisions,
-                "server_url":    server_url,
-                "token":         token,
-                "library_id":    library_id,
-                "library_path":  library_path,
+                "cache_key":       ck,
+                "stats":           stats.to_dict(),
+                "changes_count":   len(planned),
+                "changes":         [bm.to_dict(root_path) for bm in planned],
+                "collisions":      collisions,
+                "metadata_issues": [m.to_dict() for m in metadata_issues],
+                "fs_warnings":     fs_warnings,
+                "server_url":      server_url,
+                "token":           token,
+                "library_id":      library_id,
+                "library_path":    library_path,
             })
         except Exception as e:
             finish_job(jid, {}, str(e))
@@ -277,14 +284,15 @@ def api_abs_scan():
 
 @app.route("/api/apply", methods=["POST"])
 def api_apply():
-    data         = request.get_json(force=True)
-    cache_key    = data.get("cache_key",    "").strip()
-    library_path = data.get("library_path", "").strip()
-    dry_run      = bool(data.get("dry_run", False))
-    server_url   = data.get("server_url",   "").strip()
-    token        = data.get("token",        "").strip()
-    library_id   = data.get("library_id",   "").strip()
-    selected_ids = data.get("selected_ids", None)  # None = apply all
+    data          = request.get_json(force=True)
+    cache_key     = data.get("cache_key",      "").strip()
+    library_path  = data.get("library_path",   "").strip()
+    dry_run       = bool(data.get("dry_run", False))
+    server_url    = data.get("server_url",     "").strip()
+    token         = data.get("token",          "").strip()
+    library_id    = data.get("library_id",     "").strip()
+    selected_ids  = data.get("selected_ids",   None)   # None = apply all
+    metadata_edits = data.get("metadata_edits", [])    # [{item_id, title, author, series_name, series_sequence}]
 
     if not cache_key or not library_path:
         return jsonify({"error": "cache_key and library_path are required"}), 400
@@ -305,16 +313,50 @@ def api_apply():
 
     def _run():
         try:
+            client = ABSClient(server_url, token) if (server_url and token) else None
+
+            # ── Step 1: Apply metadata edits to ABS before moving files ─────────
+            # This ensures filenames derived from tokens are based on the corrected
+            # metadata, and the ABS database is already updated before the move.
+            if metadata_edits and client and not dry_run:
+                emit(f"Applying {len(metadata_edits)} metadata edit(s) to ABS...")
+                for edit in metadata_edits:
+                    iid = edit.get("item_id", "")
+                    if not iid:
+                        continue
+                    ok, msg = client.update_item_metadata(
+                        item_id         = iid,
+                        title           = edit.get("title"),
+                        author          = edit.get("author"),
+                        series_name     = edit.get("series_name"),
+                        series_sequence = edit.get("series_sequence"),
+                    )
+                    label = edit.get("title") or iid
+                    emit(f"  {'OK' if ok else 'WARN'} [{label}]: {msg}")
+
+            # ── Step 2: Move files, triggering per-item ABS scan after each ─────
+            # Per-item scan is far better than a full library rescan:
+            # - ABS matches the moved file by inode (same filesystem = no duplicate)
+            # - Progress is preserved
+            # - Only the moved book is re-indexed, not the entire library
+            items_scanned = []
+
+            def on_book_moved(abs_item_id: str):
+                if client:
+                    ok, msg = client.scan_item(abs_item_id)
+                    items_scanned.append(abs_item_id)
+                    emit(f"  ABS item scan: {'OK' if ok else 'WARN - ' + msg}")
+
             exec_stats, move_log = apply_changes(
                 planned, root_path, log_file, dry_run, emit,
                 selected_ids=selected_ids,
+                on_book_moved=on_book_moved,
             )
 
-            # Persist move log for rollback (real runs only)
+            # ── Step 3: Persist rollback log ─────────────────────────────────────
             if not dry_run and move_log:
                 with move_logs_lock:
                     move_logs[library_path] = move_log
-                # Also save to disk so rollback survives a page reload
                 try:
                     rollback_file = root_path / ".tidy_rollback.json"
                     with open(rollback_file, "w", encoding="utf-8") as f:
@@ -325,21 +367,25 @@ def api_apply():
             with cache_lock:
                 cache.pop(cache_key, None)
 
-            rescan_triggered = False
-            if not dry_run and server_url and token and library_id:
-                emit("Triggering Audiobookshelf library rescan…")
+            # ── Step 4: Full library rescan only as fallback ──────────────────────
+            # Per-item scans already ran above. A full rescan is only triggered if
+            # we have ABS credentials but per-item scanning didn't run (e.g. dry run
+            # or no item IDs available).
+            rescan_triggered = bool(items_scanned)
+            if not dry_run and client and not items_scanned and library_id:
+                emit("No per-item scans completed -- falling back to full library rescan...")
                 try:
-                    ok, msg = ABSClient(server_url, token).trigger_library_scan(library_id)
+                    ok, msg = client.trigger_library_scan(library_id)
                     rescan_triggered = ok
-                    emit(f"✓ ABS library rescan started." if ok
-                         else f"⚠ Could not trigger ABS rescan: {msg} — do it manually in ABS Settings → Libraries → Scan.")
+                    emit(f"  {'OK' if ok else 'WARN'}: {msg}")
                 except Exception as e:
-                    emit(f"⚠ ABS rescan error: {e} — do it manually in ABS Settings → Libraries → Scan.")
+                    emit(f"  WARN: ABS rescan error: {e}")
 
             finish_job(jid, {
                 "exec_stats":       exec_stats,
                 "dry_run":          dry_run,
                 "rescan_triggered": rescan_triggered,
+                "items_scanned":    len(items_scanned),
                 "has_rollback":     bool(move_log and not dry_run),
             })
         except Exception as e:

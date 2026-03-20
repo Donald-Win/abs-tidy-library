@@ -103,6 +103,27 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
 .diff-fname-new::before{content:"+ ";opacity:.8}
 /* Misc */
 .more-badge{grid-column:1/-1;text-align:center;background:var(--surface2);border-radius:20px;padding:.3rem 1rem;font-size:.78rem;color:var(--muted)}
+/* Inline metadata edit form on diff cards */
+.meta-edit-form{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.7rem .8rem;margin-top:.55rem;display:none;flex-direction:column;gap:.45rem}
+.meta-edit-form.open{display:flex}
+.meta-edit-form label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:.1rem;display:block}
+.meta-edit-row{display:flex;gap:.4rem;flex-wrap:wrap}
+.meta-edit-row .mef{flex:1;min-width:120px}
+.meta-edit-form input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:.38rem .6rem;color:var(--text);font-size:.82rem;outline:none;font-family:inherit;transition:border-color .15s}
+.meta-edit-form input:focus{border-color:var(--accent)}
+.meta-edit-form input.edited{border-color:#4ade80;background:rgba(74,222,128,.06)}
+.edit-meta-btn{font-size:.72rem;color:var(--accent);background:none;border:none;cursor:pointer;padding:.2rem 0;font-family:inherit;margin-top:.25rem;display:inline-flex;align-items:center;gap:.25rem}
+.edit-meta-btn:hover{opacity:.75}
+/* ABS link on card */
+.abs-link{font-size:.7rem;color:var(--muted);text-decoration:none;display:inline-flex;align-items:center;gap:.2rem;margin-top:.2rem}
+.abs-link:hover{color:var(--accent)}
+/* Metadata issues section */
+.issue-list{display:flex;flex-direction:column;gap:.5rem}
+.issue-item{background:var(--bg);border-radius:6px;padding:.55rem .8rem;font-size:.82rem}
+.issue-title{font-weight:600;margin-bottom:.2rem}
+.issue-reasons{color:var(--muted);font-size:.76rem;line-height:1.7}
+.issue-abs-link{font-size:.74rem;color:var(--accent);text-decoration:none;margin-top:.2rem;display:inline-block}
+.issue-abs-link:hover{opacity:.75}
 .arrow{color:var(--accent2);margin:0 4px}
 
 .terminal{background:#0a0c12;border:1px solid var(--border);border-radius:8px;padding:.9rem;font-family:'Courier New',monospace;font-size:.78rem;line-height:1.65;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:#a3e635}
@@ -441,6 +462,23 @@ header p{font-size:.82rem;color:var(--muted);margin-top:2px}
     <div class="card-title" style="color:#f59e0b">⚠ Naming Collisions Detected</div>
     <div id="collisionsList" style="font-size:.82rem;color:var(--text);line-height:1.8"></div>
     <div class="hint" style="margin-top:.5rem">Two or more books resolve to the same path. Fix your naming templates or ABS metadata before applying.</div>
+  </div>
+
+  <!-- ── Metadata issues ─────────────────────────────────────────────────────── -->
+  <div class="card section" id="metaIssuesSection" style="border-color:#f59e0b">
+    <div class="card-title" style="color:#f59e0b;display:flex;align-items:center;justify-content:space-between">
+      <span>⚠ Metadata Issues Found</span>
+      <span id="metaIssueCount" style="font-size:.78rem;font-weight:400;color:var(--muted)"></span>
+    </div>
+    <div class="hint" style="margin-bottom:.75rem">These books have missing or incorrect metadata in ABS that will produce poor filenames. Fix them in ABS first, then re-scan.</div>
+    <div class="issue-list" id="metaIssuesList"></div>
+  </div>
+
+  <!-- ── Filesystem warning ────────────────────────────────────────────────── -->
+  <div class="card section" id="fsWarningSection" style="border-color:#ef4444">
+    <div class="card-title" style="color:#ef4444">⛔ Cross-Filesystem Move Detected</div>
+    <div id="fsWarningText" style="font-size:.82rem;line-height:1.7;margin-bottom:.4rem"></div>
+    <div class="hint">Moving files across filesystem boundaries changes the inode. ABS will not recognise the move and may create duplicate entries, and your listen progress could be lost.</div>
   </div>
 
   <!-- ── Proposed changes ────────────────────────────────────────────────────── -->
@@ -918,7 +956,7 @@ async function startScan(){
   hide('rescanPrompt');
 
   busy('btnScan','scanSpinner',true);
-  ['statsSection','changesSection','collisionsSection','tidySection','logSection'].forEach(hide);
+  ['statsSection','changesSection','collisionsSection','metaIssuesSection','fsWarningSection','tidySection','logSection'].forEach(hide);
   show('termSection'); clearTerm();
   setTermTitle('⚙ Fetching metadata from ABS API…');
 
@@ -965,6 +1003,33 @@ function onScanDone(jd){
     hide('collisionsSection');
   }
 
+  // Metadata issues
+  const issues = res.metadata_issues || [];
+  if(issues.length){
+    $('metaIssueCount').textContent = issues.length + ' book' + (issues.length===1?'':'s');
+    $('metaIssuesList').innerHTML = issues.map(iss=>{
+      var absHref = absCtx.server_url ? absCtx.server_url + '/item/' + iss.item_id : '';
+      var link = absHref ? `<a class="issue-abs-link" href="${esc(absHref)}" target="_blank" rel="noopener">↗ Open in ABS</a>` : '';
+      return '<div class="issue-item">'
+        + '<div class="issue-title">' + esc(iss.title) + '<span style="font-weight:400;color:var(--muted)"> — ' + esc(iss.author) + '</span></div>'
+        + '<div class="issue-reasons">' + iss.issues.map(i=>'<div>• ' + esc(i) + '</div>').join('') + '</div>'
+        + link
+        + '</div>';
+    }).join('');
+    show('metaIssuesSection');
+  } else {
+    hide('metaIssuesSection');
+  }
+
+  // Filesystem cross-device warnings
+  const fsw = res.fs_warnings || [];
+  if(fsw.length){
+    $('fsWarningText').innerHTML = fsw.map(w=>'<div>' + esc(w) + '</div>').join('');
+    show('fsWarningSection');
+  } else {
+    hide('fsWarningSection');
+  }
+
   if(res.changes_count===0){ hide('changesSection'); show('tidySection'); }
   else{ renderChanges(res.changes,res.changes_count); show('changesSection'); }
 
@@ -972,7 +1037,8 @@ function onScanDone(jd){
   checkRollback();
 
   setTermTitle('✅ Scan complete');
-  toast(`Scan done — ${res.changes_count} books need tidying.`);
+  var issueNote = issues.length ? ` (${issues.length} metadata issue${issues.length===1?'':'s'})` : '';
+  toast(`Scan done — ${res.changes_count} books need tidying${issueNote}.`);
 }
 
 function renderStats(s){
@@ -1121,6 +1187,27 @@ function renderFilteredChanges(){
       }
 
       var itemId = c.item_id || '';
+      var absHref = absCtx.server_url && itemId ? absCtx.server_url + '/item/' + itemId : '';
+      var absLinkHtml = absHref
+        ? '<a class="abs-link" href="' + esc(absHref) + '" target="_blank" rel="noopener">↗ Open in ABS</a>'
+        : '';
+      var editFormId = 'ef_' + ci;
+      var editForm = '<button class="edit-meta-btn" onclick="toggleEditForm(&quot;' + editFormId + '&quot;,this)">'
+        + '✏ Edit metadata</button>'
+        + '<div class="meta-edit-form" id="' + editFormId + '">'
+        + '<div class="meta-edit-row">'
+        + '<div class="mef"><label>Title</label>'
+        + '<input type="text" data-field="title" data-id="' + esc(itemId) + '" value="' + esc(c.title) + '" oninput="markEdited(this)" placeholder="Title"></div>'
+        + '<div class="mef"><label>Author</label>'
+        + '<input type="text" data-field="author" data-id="' + esc(itemId) + '" value="' + esc(c.author) + '" oninput="markEdited(this)" placeholder="Author"></div>'
+        + '</div>'
+        + '<div class="meta-edit-row">'
+        + '<div class="mef"><label>Series</label>'
+        + '<input type="text" data-field="series_name" data-id="' + esc(itemId) + '" value="' + esc(c.series_name||'') + '" oninput="markEdited(this)" placeholder="Series name"></div>'
+        + '<div class="mef" style="max-width:90px"><label>Number</label>'
+        + '<input type="text" data-field="series_sequence" data-id="' + esc(itemId) + '" value="' + esc(c.series_seq||'') + '" oninput="markEdited(this)" placeholder="#"></div>'
+        + '</div>'
+        + '</div>';
       html += '<div class="change-card" data-id="' + esc(itemId) + '">'
         + '<label class="card-select-wrap" title="Select for partial apply">'
         + '<input type="checkbox" class="card-chk" data-id="' + esc(itemId) + '" onchange="onCardCheck()">'
@@ -1133,6 +1220,8 @@ function renderFilteredChanges(){
         + '<div class="change-badges">' + tags + '</div>'
         + folderBlock
         + filesBlock
+        + editForm
+        + absLinkHtml
         + '</div>'
         + '</div>';
     }
@@ -1210,13 +1299,43 @@ function getSelectedIds(){
 
 
 
+// ── Inline metadata editing ───────────────────────────────────────────────────
+function toggleEditForm(formId, btn){
+  var form = document.getElementById(formId);
+  if(!form) return;
+  var open = form.classList.toggle('open');
+  btn.textContent = open ? '✕ Close' : '✏ Edit metadata';
+}
+
+function markEdited(input){
+  var orig = input.defaultValue;
+  input.classList.toggle('edited', input.value !== orig);
+}
+
+function collectMetadataEdits(){
+  // Gather all inputs that differ from their original value
+  var byId = {};
+  document.querySelectorAll('.meta-edit-form input[data-field]').forEach(inp=>{
+    if(inp.value === inp.defaultValue) return;  // unchanged
+    var id = inp.dataset.id;
+    if(!id) return;
+    if(!byId[id]) byId[id] = {item_id: id};
+    byId[id][inp.dataset.field] = inp.value.trim();
+  });
+  return Object.values(byId);
+}
+
 // ── Actions ───────────────────────────────────────────────────────────────────
 async function startApply(selectedOnly){
   const selIds = selectedOnly ? getSelectedIds() : null;
   if(selectedOnly && (!selIds||selIds.length===0)){ toast('No books selected.',false); return; }
   const count = selIds ? selIds.length : allChanges.length;
   if(count > 0) showProgress(count);
-  await runJob('/api/apply',{dry_run:false, selected_ids:selIds},
+  const metaEdits = collectMetadataEdits();
+  if(metaEdits.length){
+    toast(`Applying ${metaEdits.length} metadata edit(s) to ABS first…`);
+  }
+  await runJob('/api/apply',{dry_run:false, selected_ids:selIds, metadata_edits:metaEdits},
     '⚙ Applying changes…','✅ Apply complete','❌ Apply failed',
     {checkRollback:true, withProgress:true});
 }
