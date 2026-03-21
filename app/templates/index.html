@@ -599,6 +599,7 @@ let absCtx      = { server_url:'', token:'', library_id:'' };
 
 // Presets injected from Flask
 const PRESETS = {{ naming_presets | tojson }};
+let absExternalUrl = {{ env_external_url | tojson }};  // browser-facing ABS URL for deep links
 
 // ── DOM helpers ───────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -988,6 +989,7 @@ function onScanDone(jd){
   const res=jd.result;
   cacheKey=res.cache_key||'';
   if(res.server_url) absCtx.server_url=res.server_url;
+  if(res.external_url) absExternalUrl=res.external_url;
   if(res.library_id) absCtx.library_id=res.library_id;
   lastScannedNaming = getNaming();
 
@@ -1008,7 +1010,7 @@ function onScanDone(jd){
   if(issues.length){
     $('metaIssueCount').textContent = issues.length + ' book' + (issues.length===1?'':'s');
     $('metaIssuesList').innerHTML = issues.map(iss=>{
-      var absHref = absCtx.server_url ? absCtx.server_url + '/item/' + iss.item_id : '';
+      var absHref = (absExternalUrl||absCtx.server_url) ? (absExternalUrl||absCtx.server_url) + '/item/' + iss.item_id : '';
       var link = absHref ? `<a class="issue-abs-link" href="${esc(absHref)}" target="_blank" rel="noopener">↗ Open in ABS</a>` : '';
       return '<div class="issue-item">'
         + '<div class="issue-title">' + esc(iss.title) + '<span style="font-weight:400;color:var(--muted)"> — ' + esc(iss.author) + '</span></div>'
@@ -1187,7 +1189,7 @@ function renderFilteredChanges(){
       }
 
       var itemId = c.item_id || '';
-      var absHref = absCtx.server_url && itemId ? absCtx.server_url + '/item/' + itemId : '';
+      var absHref = itemId ? (absExternalUrl||absCtx.server_url) + '/item/' + itemId : '';
       var absLinkHtml = absHref
         ? '<a class="abs-link" href="' + esc(absHref) + '" target="_blank" rel="noopener">↗ Open in ABS</a>'
         : '';

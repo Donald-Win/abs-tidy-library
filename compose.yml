@@ -16,12 +16,27 @@ services:
 
     environment:
       # ── Audiobookshelf connection ────────────────────────────────────────────
+      # ABS_SERVER_URL is used for internal API calls.
       # Use your server's LAN IP — not localhost or 127.0.0.1.
       # Those won't work from inside a container even if ABS is on the same machine.
       ABS_SERVER_URL: "http://192.168.1.100:13378"
 
+      # ABS_EXTERNAL_URL is used for deep links that open in the browser.
+      # If you use a reverse proxy or custom domain (e.g. Caddy), set this to
+      # the address you type in your browser. Falls back to ABS_SERVER_URL if not set.
+      #
+      # Example — direct access (same value for both):
+      #   ABS_SERVER_URL:   "http://192.168.1.100:13378"
+      #   ABS_EXTERNAL_URL: "http://192.168.1.100:13378"
+      #
+      # Example — behind a reverse proxy:
+      #   ABS_SERVER_URL:   "http://audiobookshelf:80"   # internal container name
+      #   ABS_EXTERNAL_URL: "http://abs.internal"        # what you type in your browser
+      ABS_EXTERNAL_URL: "http://192.168.1.100:13378"
+
       # API key from ABS → Settings → API Keys → Add API Key.
-      # Must be an admin account — the tool reads library metadata and triggers rescans.
+      # Must be an admin account — the tool reads library metadata, edits book
+      # metadata, and triggers rescans.
       ABS_TOKEN: "your-api-key-here"
 
       # Optional — auto-selects a library on load so you don't have to pick it manually.

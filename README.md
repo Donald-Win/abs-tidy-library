@@ -11,10 +11,14 @@ A web UI for automatically organising your [Audiobookshelf](https://www.audioboo
 
 - **Scans** your ABS library and shows statistics — books, authors, series, total play-time and size
 - **Proposes changes** as diff cards showing exactly what folder and file names will change
+- **Metadata preflight** — flags books with missing author, title, or series number before you apply
+- **Inline metadata editing** — fix title, author, or series directly on each card; changes are pushed to ABS before files move
 - **Dry Run** mode simulates every move with zero changes made to disk
 - **Selective apply** — tick the books you want moved instead of doing them all at once
+- **Per-item ABS scan** after each move — preserves listen progress and avoids duplicate entries
 - **Rollback** — one click to undo the last apply run, even after a page reload
 - **Collision detection** — warns you before applying if two books would resolve to the same path
+- **Filesystem check** — warns if a move would cross filesystem boundaries and risk losing progress
 - **Cleans empty directories** left over after moves
 - **Persistent settings** — naming templates survive container restarts
 
@@ -28,7 +32,7 @@ A web UI for automatically organising your [Audiobookshelf](https://www.audioboo
 curl -O https://raw.githubusercontent.com/Donald-Win/abs-tidy-library/main/compose.yaml
 ```
 
-### 2. Edit the three required values
+### 2. Edit the required values
 
 ```yaml
 volumes:
@@ -36,8 +40,9 @@ volumes:
   - /any/config/folder:/config  # any persistent folder for settings
 
 environment:
-  ABS_SERVER_URL: "http://192.168.1.100:13378"   # your server's LAN IP
-  ABS_TOKEN:      "your-api-key-here"             # from ABS → Settings → API Keys
+  ABS_SERVER_URL:  "http://192.168.1.100:13378"  # LAN IP — used for API calls
+  ABS_EXTERNAL_URL: "http://192.168.1.100:13378" # browser-facing URL — used for deep links
+  ABS_TOKEN:       "your-api-key-here"           # from ABS → Settings → API Keys
 ```
 
 ### 3. Start
@@ -66,8 +71,16 @@ The left side of the audiobooks volume mount must point to the same host directo
 **Use your LAN IP, not localhost**
 Even if ABS is running on the same machine, containers can't reach each other via `localhost` or `127.0.0.1`. Use the actual LAN IP of your server (e.g. `192.168.1.100`).
 
+**Running behind a reverse proxy (Caddy, Nginx, etc.)**
+If ABS is accessed via a hostname like `http://abs.internal`, set `ABS_SERVER_URL` to the internal container address for API calls (e.g. `http://audiobookshelf:80`) and `ABS_EXTERNAL_URL` to the browser-facing address (e.g. `http://abs.internal`). Without this, deep links to books will fail with a DNS error.
+
+```yaml
+ABS_SERVER_URL:   "http://audiobookshelf:80"  # internal — for API calls
+ABS_EXTERNAL_URL: "http://abs.internal"       # external — for browser links
+```
+
 **The API key needs to be from an admin account**
-The tool reads library metadata and triggers rescans. A non-admin token won't have access to do this.
+The tool reads library metadata, updates book metadata, and triggers rescans. A non-admin token won't have access to do this.
 
 **`LIBRARY_PATH` must match your volume mount**
 If you mount as `:/library`, set `LIBRARY_PATH: "/library"`. They must agree.
@@ -79,13 +92,14 @@ Docker will create it automatically if it doesn't exist yet, as long as the path
 
 ## ⚙️ Configuration Reference
 
-| Variable | Description |
-|---|---|
-| `ABS_SERVER_URL` | Your ABS server address — use LAN IP, not localhost |
-| `ABS_TOKEN` | Admin API key from ABS → Settings → API Keys |
-| `ABS_LIBRARY_ID` | Optional — auto-selects a library. Find it in ABS → Settings → Libraries → click your library → copy the ID from the URL |
-| `LIBRARY_PATH` | Path inside the container where books are mounted. Must match your volume mount |
-| `CONFIG_PATH` | Where naming config is saved. Default: `/config/naming.json` |
+| Variable | Required | Description |
+|---|---|---|
+| `ABS_SERVER_URL` | Yes | Internal ABS address used for API calls. Use LAN IP or container name — not localhost |
+| `ABS_EXTERNAL_URL` | Recommended | Browser-facing ABS address used for deep links. Set this if you use a reverse proxy or custom domain. Falls back to `ABS_SERVER_URL` if not set |
+| `ABS_TOKEN` | Yes | Admin API key from ABS → Settings → API Keys |
+| `ABS_LIBRARY_ID` | Optional | Auto-selects a library on load. Find it in ABS → Settings → Libraries → click your library → copy the ID from the URL |
+| `LIBRARY_PATH` | Optional | Path inside the container where books are mounted. Must match your volume mount. Default: `/library` |
+| `CONFIG_PATH` | Optional | Where naming config is saved. Default: `/config/naming.json` |
 
 ---
 
@@ -126,10 +140,11 @@ Brandon Sanderson/
 Nothing is moved until you explicitly click Apply.
 
 1. **Scan** — reads metadata from ABS, builds the change plan
-2. **Review** — inspect every proposed change in the diff cards
-3. **Dry Run** — simulates all moves and logs them, nothing touches disk
-4. **Apply** (or **Apply Selected** for a subset)
-5. **Rollback** if anything looks wrong — reverts all files from the last apply
+2. **Review metadata issues** — fix any flagged books in ABS first, then re-scan
+3. **Edit inline** — correct any remaining metadata directly on the diff cards
+4. **Dry Run** — simulates all moves and logs them, nothing touches disk
+5. **Apply** (or **Apply Selected** for a subset)
+6. **Rollback** if anything looks wrong — reverts all files from the last apply
 
 ---
 
@@ -156,3 +171,4 @@ docker compose pull && docker compose up -d
 ## 📄 License
 
 MIT — see [LICENSE](LICENSE).
+

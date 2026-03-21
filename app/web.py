@@ -24,6 +24,7 @@ app = Flask(__name__)
 
 # ── Environment-variable defaults ─────────────────────────────────────────────
 ENV_SERVER_URL   = os.environ.get("ABS_SERVER_URL",   "").strip().rstrip("/")
+ENV_EXTERNAL_URL = os.environ.get("ABS_EXTERNAL_URL", "").strip().rstrip("/")  # browser-facing URL for deep links
 ENV_TOKEN        = os.environ.get("ABS_TOKEN",        "").strip()
 ENV_LIBRARY_ID   = os.environ.get("ABS_LIBRARY_ID",   "").strip()
 ENV_LIBRARY_PATH = os.environ.get("LIBRARY_PATH",     "/library").strip()
@@ -73,6 +74,7 @@ def index():
     return render_template(
         "index.html",
         env_server_url   = ENV_SERVER_URL,
+        env_external_url = ENV_EXTERNAL_URL,
         env_token        = ENV_TOKEN,
         env_library_id   = ENV_LIBRARY_ID,
         env_library_path = ENV_LIBRARY_PATH,
@@ -104,6 +106,7 @@ def api_env_defaults():
     naming = load_naming_config()
     return jsonify({
         "server_url":   ENV_SERVER_URL,
+        "external_url": ENV_EXTERNAL_URL,
         "token":        ENV_TOKEN,
         "library_id":   ENV_LIBRARY_ID,
         "library_path": ENV_LIBRARY_PATH,
