@@ -210,6 +210,7 @@ class BookMove:
     target_dir: Path
     move_plan: List[Tuple[Path, Path]]
     abs_item_id: str = ""
+    tokens: Dict[str, str] = field(default_factory=lambda: {})
 
     def to_dict(self, root_path: Path) -> dict:
         def rel(p: Path) -> str:
@@ -549,6 +550,7 @@ def scan_library_abs(
                 series_name=item.series_name, series_sequence=item.series_sequence,
                 old_dir=old_book_dir, target_dir=target_dir,
                 move_plan=move_plan, abs_item_id=item.item_id,
+                tokens=tokens
             ))
 
     planned_moves = pad_series_numbers(planned_moves, naming, root_path)
@@ -822,10 +824,7 @@ def pad_series_numbers(
                 continue
             bm.series_sequence = padded
             # Re-render target_dir with padded sequence
-            tokens = make_tokens(
-                author=bm.author, title=bm.title,
-                series_name=bm.series_name, series_sequence=padded,
-            )
+            tokens = bm.tokens
             folder_tpl = naming.folder_series if bm.series_name else naming.folder_standalone
             bm.target_dir = root_path / render_template(folder_tpl, tokens)
             # Re-render file names in move_plan
